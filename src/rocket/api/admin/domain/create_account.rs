@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use crate::rocket::auth::check_password::set_password;
-use crate::rocket::content::admin::domain::{admin_domain_accounts_get_impl, template, unauth_error};
+use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
 use crate::rocket::messages::DATABASE_ERROR;
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
