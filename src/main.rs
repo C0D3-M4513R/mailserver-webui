@@ -1,13 +1,13 @@
 mod rocket;
 
 
-pub(crate) async fn get_mysql<'a>() -> &'a anyhow::Result<sqlx::postgres::PgPool> {
-    static MYSQL: tokio::sync::OnceCell<anyhow::Result<sqlx::postgres::PgPool>> = tokio::sync::OnceCell::const_new();
+pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
+    static MYSQL: tokio::sync::OnceCell<sqlx::postgres::PgPool> = tokio::sync::OnceCell::const_new();
     MYSQL.get_or_init(async || {
         let options = sqlx::postgres::PgConnectOptions::new();
-        let pool = sqlx::Pool::connect_with(options).await?;
+        let pool = sqlx::Pool::connect_with(options).await.expect("Failed to connect to postgres");
         log::info!("Connected to postgres");
-        Ok(pool)
+        pool
     }).await
 }
 
@@ -32,19 +32,23 @@ async fn main() -> anyhow::Result<()> {
     }
 
 
-    let _ = match get_mysql().await{
-        Ok(v) => v,
-        Err(e) => anyhow::bail!("Failed to get mysql connection: {e}"),
-    };
+    let _ = get_mysql().await;
 
     ::rocket::build()
         .mount("/", ::rocket::routes![
-            rocket::index::index_get,
-            rocket::index::index_post,
-            rocket::index::logout_post,
+            rocket::index_get,
+            rocket::index_post,
+            rocket::logout_put,
 
-            rocket::admin::admin_get,
-            rocket::admin::admin_domain_get,
+            rocket::admin_get,
+            rocket::admin_domain_get,
+            rocket::admin_domain_accounts_get,
+            rocket::admin_domain_accounts_put,
+            rocket::admin_domain_accounts_delete,
+
+            rocket::post_refresh_session,
+            rocket::admin_get_change_pw,
+            rocket::admin_put_change_pw,
         ])
         .launch()
         .await?;
