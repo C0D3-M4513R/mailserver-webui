@@ -4,12 +4,12 @@ use crate::rocket::messages::DATABASE_ERROR;
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
-#[rocket::get("/admin/<domain>/accounts")]
-pub async fn admin_domain_accounts_get(session: Option<Session>, domain: &str) -> Return {
-    admin_domain_accounts_get_impl(session, domain, None).await
+#[rocket::get("/admin/<domain>/accounts/<user_id>")]
+pub async fn admin_domain_account_get(session: Option<Session>, domain: &str, user_id:i32) -> Return {
+    admin_domain_account_get_impl(session, domain, user_id, None).await
 }
 
-pub(in crate::rocket) async fn admin_domain_accounts_get_impl(session: Option<Session>, domain: &str, error: Option<&str>) -> Return {
+pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Session>, domain: &str, user_id:i32, error: Option<&str>) -> Return {
     let session = match session {
         None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
         Some(v) => v,
@@ -37,27 +37,19 @@ pub(in crate::rocket) async fn admin_domain_accounts_get_impl(session: Option<Se
     }
 
     let db = crate::get_mysql().await;
-    let accounts = match sqlx::query!(r#"
+    let account = match sqlx::query!(r#"
 SELECT
     users.id,
-    users.email
+    users.email,
+    target_perms.*
 FROM virtual_users users
-WHERE users.domain_id = $1"#, permissions.get_domain_id())
-        .fetch_all(db)
+JOIN flattened_web_domain_permissions target_perms ON target_perms.user_id = users.id
+WHERE users.id = $1 AND target_perms.domain_id = $2
+"#, user_id, permissions.get_domain_id())
+        .fetch_one(db)
         .await
     {
-        Ok(v) => v.into_iter().map(|v|{
-            let id = v.id;
-            let email = v.email;
-            let full_email = format!("{email}@{domain}");
-            let modify = if permissions.get_modify_accounts() {
-                format!(r#"<a href="/admin/{domain}/accounts/{id}">Modify</a>"#)
-            } else {
-                String::new()
-            };
-
-            format!(r#"<tr><td><input class="account-select" type="checkbox" name="accounts[{id}]"/></td><td>{full_email}</td><td>{modify}</td></tr>"#)
-        }).fold(String::new(), |a,b|format!("{a}{b}")),
+        Ok(v) => v,
         Err(err) => {
             #[cfg(debug_assertions)]
             log::error!("Error fetching accounts: {err}");
@@ -68,17 +60,28 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
         }
     };
 
-    let new_account = if permissions.get_create_accounts() {
-        format!(r#"<h2>Create new Account:</h2>
-<form method="POST">
-    <input type="hidden" name="_method" value="PUT" />
-    <label>Email: <a></a><input type="text" name="email" />@{domain}</a></label><br>
-    <label>Password: <input type="password" name="password" /></label><br>
-    <input type="submit" value="Add Account" />
-</form>"#)
+    let modify_account = if permissions.get_modify_accounts() {
+        ""
     } else {
-        String::new()
+        "disabled"
     };
+
+    let email = &account.email;
+    let account_info = format!(r#"
+<h2>Account Information:</h2>
+    <h3>Be VERY careful Changing the email. Any content in that Account will (currently) not transfer over to the new name.</h3>
+    <p>You should prefer using an alias, and just using the alias to send. Theoretically changing the email to something and then changing it back should work though (It is not guaranteed to though).</p>
+<form method="POST" action="{user_id}/email">
+    <input type="hidden" name="_method" value="PUT" />
+    <label>Email: <a><input type="text" name="email" value="{email}" {modify_account} />@{domain}</a></label>
+    <input type="submit" name="action" value="Update Email" {modify_account}/>
+</form>
+<form method="POST" action="{user_id}/password">
+    <input type="hidden" name="_method" value="PUT" />
+    <label>Password: <input type="password" name="password" {modify_account} /></label>
+    <input type="submit" value="Update Password" {modify_account}/>
+</form>
+    "#);
 
     let header = domain_linklist(&session, domain);
     let error = error.unwrap_or("");
@@ -87,20 +90,8 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
         content: Cow::Owned(template(domain, format!(r#"
     {header}
 <div id="account-mod-error">{error}</div>
-{new_account}
-<h2>Existing Accounts:</h2>
-<form method="POST">
-<input type="hidden" name="_method" value="DELETE" />
-<input type="submit" value="Delete Selected Accounts" />
-    <table>
-        <tr>
-            <th></th>
-            <th>Email</th>
-            <th>Actions</th>
-        </tr>
-        {accounts}
-    </table>
-    </form>
+{account_info}
+{list_permissions}
         "#).as_str())),
     }))
 }

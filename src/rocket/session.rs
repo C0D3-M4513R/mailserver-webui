@@ -131,6 +131,21 @@ FROM flattened_web_domain_permissions perm
         })
     }
 
+    pub async fn refresh_permissions(&mut self, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
+        let session = Self::new(self.user_id, self.self_change_password).await?;
+        match session.get_cookie() {
+            Ok(v) => cookies.add_private(v),
+            Err(err) => {
+                Self::remove_cookie(cookies);
+                #[cfg(debug_assertions)]
+                log::error!("Error creating cookie: {err}");
+                anyhow::bail!("Error creating cookie: {err}");
+            }
+        }
+        self.permissions = session.permissions;
+        self.self_change_password = session.self_change_password;
+        Ok(())
+    }
     pub fn remove_cookie(cookies: &rocket::http::CookieJar<'_>) {
         match cookies.get_private("email")  {
             Some(cookie) => cookies.remove_private(cookie),

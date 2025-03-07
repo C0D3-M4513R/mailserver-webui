@@ -1,18 +1,15 @@
 use std::borrow::Cow;
-use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR, INVALID_CONTENT_TYPE};
+use crate::rocket::content::admin::domain::{template, unauth_error};
+use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR, INVALID_CONTENT_TYPE, GET_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
 mod private {
-    #[derive(Debug, serde::Deserialize, serde::Serialize)]
-    #[serde(tag = "v")]
-    pub enum DeleteAccounts{
-        V1(DeleteAccountsV1),
-    }
+    use std::collections::HashMap;
 
-    #[derive(Debug, serde::Deserialize, serde::Serialize)]
-    pub struct DeleteAccountsV1 {
-        pub accounts: Vec<i32>,
+    #[derive(Debug, rocket::form::FromForm)]
+    pub struct DeleteAccounts{
+        pub accounts: HashMap<i32, bool>,
     }
 }
 
@@ -23,58 +20,69 @@ pub const DELETE_ACCOUNTS_MEDIA_TYPE: rocket::http::MediaType = rocket::http::Me
 );
 pub const DELETE_ACCOUNTS_CONTENT_TYPE: rocket::http::ContentType = rocket::http::ContentType(DELETE_ACCOUNTS_MEDIA_TYPE);
 
-#[rocket::delete("/admin/<domain>/accounts", data="<data>")]
-pub async fn admin_domain_accounts_delete(
-    content_type: &'_ rocket::http::ContentType,
+#[rocket::delete("/admin/<domain>/accounts/<user_id>")]
+pub async fn admin_domain_account_delete(
     session: Session,
     domain: &str,
-    data: ::rocket::serde::json::Json<private::DeleteAccounts>
+    user_id: i32,
+    cookie_jar: &'_ rocket::http::CookieJar<'_>,
 ) -> Return {
-    if content_type != &DELETE_ACCOUNTS_CONTENT_TYPE {
-        return Return::Json((rocket::http::Status::UnsupportedMediaType, TypedContent{
-            content_type: super::super::super::error::JSON_ERROR_CONTENT_TYPE,
-            content: rocket::serde::json::json!({
-                "message": INVALID_CONTENT_TYPE,
-            }),
-        }));
-    }
+    let mut accounts = std::collections::HashMap::new();
+    accounts.insert(user_id, true);
+    admin_domain_accounts_delete(session, domain, ::rocket::form::Form::from(private::DeleteAccounts{accounts}), cookie_jar).await
+}
 
-    const NO_PERM:Return = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: super::super::super::error::JSON_ERROR_CONTENT_TYPE,
-        content: Cow::Borrowed(const_format::formatcp!(r#"{{"message": "{DELETE_ACCOUNT_NO_PERM}"}}"#)),
+#[rocket::delete("/admin/<domain>/accounts", data="<data>")]
+pub async fn admin_domain_accounts_delete(
+    mut session: Session,
+    domain: &str,
+    data: ::rocket::form::Form<private::DeleteAccounts>,
+    cookie_jar: &'_ rocket::http::CookieJar<'_>,
+) -> Return {
+    let unauth = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(unauth_error(domain)),
     }));
 
+    match session.refresh_permissions(cookie_jar).await {
+        Ok(()) => {},
+        Err(err) => {
+            log::error!("Error refreshing permissions: {err}");
+            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
+            }));
+        }
+    }
+
     let permissions = match session.get_permissions().get(domain) {
-        None => return NO_PERM,
+        None => return unauth,
         Some(v) => v,
     };
 
-    if !permissions.get_modify_accounts(){
-        return NO_PERM;
+    if !permissions.get_admin() && !permissions.get_modify_accounts(){
+        return unauth;
     }
 
-    const DB_ERROR:Return = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: super::super::super::error::JSON_ERROR_CONTENT_TYPE,
-        content: Cow::Borrowed(const_format::formatcp!(r#"{{"message": "{DATABASE_ERROR}"}}"#)),
+    let db_error = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, DATABASE_ERROR)),
     }));
 
     let db = crate::get_mysql().await;
-    match &*data {
-        private::DeleteAccounts::V1(data) => {
-            match sqlx::query!(
-                r#"
-                DELETE FROM virtual_users users
-                   WHERE users.id = ANY($1) AND users.domain_id IN (SELECT id FROM virtual_domains WHERE name = $2)
-                "#,
-                &data.accounts,
-                domain
-            ).execute(db).await {
-                Ok(_) => Return::Status(rocket::http::Status::NoContent),
-                Err(err) => {
-                    log::error!("Error deleting accounts: {err}");
-                    DB_ERROR
-                }
-            }
+    let accounts = data.into_inner().accounts.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
+    match sqlx::query!(
+        r#"
+        DELETE FROM virtual_users users
+           WHERE users.id = ANY($1) AND users.domain_id IN (SELECT id FROM virtual_domains WHERE name = $2)
+        "#,
+        &accounts,
+        domain
+    ).execute(db).await {
+        Ok(_) => Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts"))),
+        Err(err) => {
+            log::error!("Error deleting accounts: {err}");
+            db_error
         }
     }
 

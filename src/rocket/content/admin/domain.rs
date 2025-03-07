@@ -1,12 +1,12 @@
 pub mod accounts;
+pub mod account;
+
+pub use account::admin_domain_account_get;
 pub use accounts::admin_domain_accounts_get;
 
 use crate::rocket::session::HEADER;
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::rocket::api::domain::delete_accounts::DELETE_ACCOUNTS_CONTENT_TYPE;
-use crate::rocket::api::error::JSON_ERROR_CONTENT_TYPE;
-use crate::rocket::messages::DATABASE_ERROR;
 use super::super::{Session, Return, TypedContent};
 
 pub(in crate::rocket) fn template(domain: &str, content: impl Display) -> String {

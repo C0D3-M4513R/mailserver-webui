@@ -1,6 +1,6 @@
 pub mod domain;
 
-pub use domain::{admin_domain_get, admin_domain_accounts_get};
+pub use domain::{admin_domain_get, admin_domain_accounts_get, admin_domain_account_get};
 
 use super::{Return, TypedContent, Session, SESSION_HEADER};
 use std::borrow::Cow;
