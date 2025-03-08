@@ -17,6 +17,7 @@ jobs:
       actions: write #manage cache
       packages: write #packages write
     strategy:
+      fail-fast: false
       matrix:
         arch: [amd64, arm64]
         include:
