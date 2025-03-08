@@ -42,14 +42,20 @@ async fn main() -> anyhow::Result<()> {
 
             rocket::admin_get,
             rocket::admin_domain_get,
+            //Account Overview
             rocket::admin_domain_accounts_get,
             rocket::admin_domain_accounts_put,
             rocket::admin_domain_accounts_delete,
+            //Single-Account Stuff
             rocket::admin_domain_account_get,
             rocket::admin_domain_account_delete,
             rocket::admin_domain_account_email_put,
             rocket::admin_domain_account_password_put,
             rocket::admin_domain_account_permissions_put,
+            //Subdomain Overview
+            rocket::admin_domain_subdomains_get,
+            rocket::admin_domain_subdomains_put,
+            rocket::admin_domain_subdomains_delete,
 
             rocket::post_refresh_session,
             rocket::admin_get_change_pw,

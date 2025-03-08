@@ -1,0 +1,108 @@
+use std::borrow::Cow;
+use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_error};
+use crate::rocket::messages::DATABASE_ERROR;
+use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::session::Session;
+
+#[rocket::get("/admin/<domain>/subdomains")]
+pub async fn admin_domain_subdomains_get(session: Option<Session>, domain: &str) -> Return {
+    admin_domain_subdomains_get_impl(session, domain, None).await
+}
+
+pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<Session>, domain: &str, error: Option<&str>) -> Return {
+    let session = match session {
+        None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
+        Some(v) => v,
+    };
+    let unauth_error = unauth_error(domain);
+    let permissions = match session.get_permissions().get(domain) {
+        None => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(unauth_error),
+        })),
+        Some(v) => v,
+    };
+
+    if !permissions.get_admin() {
+        if
+        !permissions.get_view_domain() ||
+            !permissions.get_list_subdomain()
+        {
+            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(unauth_error),
+            }));
+        }
+    }
+
+    let db = crate::get_mysql().await;
+    let domains = match sqlx::query!(r#"
+SELECT
+    domains.id AS "id!",
+    domains.name AS "name!"
+FROM virtual_flattened_domains domains
+WHERE domains.super = $1"#, permissions.get_domain_id())
+        .fetch_all(db)
+        .await
+    {
+        Ok(v) => v.into_iter().filter_map(|v|{
+            let target_permission = session.get_permissions().get(&v.name)?;
+            if !target_permission.get_admin() && !target_permission.get_view_domain() {
+                return None;
+            }
+
+            let id = v.id;
+            let name = v.name;
+            let modify = if permissions.get_admin() || permissions.get_modify_accounts() {
+                format!(r#"<a href="/admin/{name}/view">Modify</a>"#)
+            } else {
+                String::new()
+            };
+
+            Some(format!(r#"<tr><td><input class="domain-select" type="checkbox" name="domains[{id}]"/></td><td>{name}</td><td>{modify}</td></tr>"#))
+        }).fold(String::new(), |a,b|format!("{a}{b}")),
+        Err(err) => {
+            #[cfg(debug_assertions)]
+            log::error!("Error fetching accounts: {err}");
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(template(domain, DATABASE_ERROR)),
+            }));
+        }
+    };
+
+    let new_subdomain = if permissions.get_admin() || permissions.get_create_subdomain() {
+        format!(r#"<h2>Create new Subdomain:</h2>
+<form method="POST">
+    <input type="hidden" name="_method" value="PUT" />
+    <label>Name: <input type="text" name="email" /></label>
+    <input type="submit" value="Add Subdomain" />
+</form>"#)
+    } else {
+        String::new()
+    };
+
+    let header = domain_linklist(&session, domain);
+    let error = error.unwrap_or("");
+    Return::Content((rocket::http::Status::Ok, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, format!(r#"
+    {header}
+<div id="subdomain-mod-error">{error}</div>
+{new_subdomain}
+<h2>Existing Accounts:</h2>
+<form method="POST">
+<input type="hidden" name="_method" value="DELETE" />
+<input type="submit" value="Delete Selected Subdomains" />
+    <table>
+        <tr>
+            <th></th>
+            <th>Sub-Domain</th>
+            <th>Actions</th>
+        </tr>
+        {domains}
+    </table>
+    </form>
+        "#).as_str())),
+    }))
+}

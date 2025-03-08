@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
-use crate::rocket::messages::{CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR, MODIFY_ACCOUNT_NO_PERM};
+use crate::rocket::messages::{CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
