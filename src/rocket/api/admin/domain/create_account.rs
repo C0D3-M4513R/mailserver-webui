@@ -16,7 +16,7 @@ mod private{
 
 #[rocket::put("/admin/<domain>/accounts", data = "<data>")]
 pub async fn create_account(session: Option<Session>, domain: &'_ str, data: rocket::form::Form<private::CreateAccount<'_>>, cookie_jar: &'_ CookieJar<'_>) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
@@ -61,14 +61,18 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         Ok(v) => v.id,
         Err(err) => {
             log::error!("Error creating account: {err}");
-            return admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
+            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
+            result.override_status(rocket::http::Status::InternalServerError);
+            return result;
         }
     };
 
     match set_password(&mut transaction, id, data.password).await {
         Err(err) => {
             log::error!("Error setting password: {err}");
-            return admin_domain_accounts_get_impl(Some(session), domain, Some("There was an error setting the account Password.")).await;
+            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some("There was an error setting the account Password.")).await;
+            result.override_status(rocket::http::Status::InternalServerError);
+            return result;
         }
         Ok(()) => {},
     }

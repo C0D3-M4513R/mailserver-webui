@@ -52,19 +52,19 @@ pub async fn admin_domain_accounts_delete(
         }
     }
 
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, DELETE_ACCOUNT_NO_PERM)),
+    }));
     let permissions = match session.get_permissions().get(domain) {
-        None => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, DELETE_ACCOUNT_NO_PERM)),
-        })),
+        None => return no_perm,
         Some(v) => v,
     };
-
     if !permissions.get_admin() && !permissions.get_delete_accounts(){
-        return unauth;
+        return no_perm;
     }
 
-    let db_error = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+    let db_error = Return::Content((rocket::http::Status::InternalServerError, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(template(domain, DATABASE_ERROR)),
     }));

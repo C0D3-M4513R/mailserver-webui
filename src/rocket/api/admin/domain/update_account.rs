@@ -208,15 +208,16 @@ pub async fn admin_domain_account_permissions_put(
         }
     }
 
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, MANAGE_PERMISSION_NO_PERM)),
+    }));
     let permission = match session.get_permissions().get(domain) {
-        None => return unauth_error,
+        None => return no_perm,
         Some(v) => v,
     };
     if !permission.get_admin() && !permission.get_manage_permissions() {
-        return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, MANAGE_PERMISSION_NO_PERM)),
-        }));
+        return no_perm;
     }
 
     let mut user_permission = data.into_inner();
@@ -328,7 +329,7 @@ user_permission.manage_permissions,
             Ok(()) => {},
             Err(err) => {
                 log::error!("Error refreshing permissions: {err}");
-                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                     content_type: rocket::http::ContentType::HTML,
                     content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
                 }));
