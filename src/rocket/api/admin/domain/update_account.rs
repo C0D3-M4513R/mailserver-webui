@@ -3,7 +3,7 @@ use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::account::admin_domain_account_get_impl;
-use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR};
+use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
@@ -74,12 +74,16 @@ pub async fn admin_domain_account_email_put(
         }
     }
 
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, MODIFY_ACCOUNT_NO_PERM)),
+    }));
     let permission = match session.get_permissions().get(domain) {
-        None => return unauth_error,
+        None => return no_perm,
         Some(v) => v,
     };
     if !permission.get_admin() && !permission.get_create_accounts() {
-        return unauth_error
+        return no_perm;
     }
 
     let db = crate::get_mysql().await;
@@ -118,12 +122,16 @@ pub async fn admin_domain_account_password_put(
         }
     }
 
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, MODIFY_ACCOUNT_NO_PERM)),
+    }));
     let permission = match session.get_permissions().get(domain) {
-        None => return unauth_error,
+        None => return no_perm,
         Some(v) => v,
     };
     if !permission.get_admin() && !permission.get_modify_accounts() {
-        return unauth_error
+        return no_perm;
     }
 
     let db = crate::get_mysql().await;
@@ -190,7 +198,10 @@ pub async fn admin_domain_account_permissions_put(
         Some(v) => v,
     };
     if !permission.get_admin() && !permission.get_manage_permissions() {
-        return unauth_error
+        return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(template(domain, MANAGE_PERMISSION_NO_PERM)),
+        }));
     }
 
     let mut user_permission = data.into_inner();
