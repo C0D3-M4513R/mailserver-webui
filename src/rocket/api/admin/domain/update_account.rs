@@ -53,21 +53,26 @@ mod private{
 
 #[rocket::put("/admin/<domain>/accounts/<user_id>/email", data = "<data>")]
 pub async fn admin_domain_account_email_put(
-    mut session: Session,
+    session: Option<Session>,
     domain: &'_ str,
     user_id: i64,
     data: rocket::form::Form<private::UpdateAccountEmail<'_>>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
+    let mut session = match session {
+        None => return unauth_error,
+        Some(v) => v,
+    };
+
     match session.refresh_permissions(cookie_jar).await{
         Ok(()) => {},
         Err(err) => {
             log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
                 content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
             }));
@@ -101,21 +106,26 @@ pub async fn admin_domain_account_email_put(
 }
 #[rocket::put("/admin/<domain>/accounts/<user_id>/password", data = "<data>")]
 pub async fn admin_domain_account_password_put(
-    mut session: Session,
+    session: Option<Session>,
     domain: &'_ str,
     user_id: i64,
     data: rocket::form::Form<private::UpdateAccountPassword<'_>>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
+    let mut session = match session {
+        None => return unauth_error,
+        Some(v) => v,
+    };
+
     match session.refresh_permissions(cookie_jar).await{
         Ok(()) => {},
         Err(err) => {
             log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
                 content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
             }));
@@ -172,21 +182,26 @@ pub async fn admin_domain_account_password_put(
 
 #[rocket::put("/admin/<domain>/accounts/<user_id>/permissions", data = "<data>")]
 pub async fn admin_domain_account_permissions_put(
-    mut session: Session,
+    session: Option<Session>,
     domain: &'_ str,
     user_id: i64,
     data: rocket::form::Form<private::Permission>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
+    let mut session = match session {
+        None => return unauth_error,
+        Some(v) => v,
+    };
+
     match session.refresh_permissions(cookie_jar).await{
         Ok(()) => {},
         Err(err) => {
             log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
                 content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
             }));

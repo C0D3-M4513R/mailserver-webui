@@ -15,7 +15,7 @@ mod private {
 
 #[rocket::delete("/admin/<domain>/accounts/<user_id>")]
 pub async fn admin_domain_account_delete(
-    session: Session,
+    session: Option<Session>,
     domain: &str,
     user_id: i64,
     cookie_jar: &'_ rocket::http::CookieJar<'_>,
@@ -27,21 +27,25 @@ pub async fn admin_domain_account_delete(
 
 #[rocket::delete("/admin/<domain>/accounts", data="<data>")]
 pub async fn admin_domain_accounts_delete(
-    mut session: Session,
+    session: Option<Session>,
     domain: &str,
     data: ::rocket::form::Form<private::DeleteAccounts>,
     cookie_jar: &'_ rocket::http::CookieJar<'_>,
 ) -> Return {
-    let unauth = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+    let unauth = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
+    let mut session = match session {
+        None => return unauth,
+        Some(v) => v,
+    };
 
     match session.refresh_permissions(cookie_jar).await {
         Ok(()) => {},
         Err(err) => {
             log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
                 content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
             }));

@@ -3,6 +3,7 @@ pub const OTHER_PASSWORD_ISSUE:&str = r#"There was an unknown Error, whilst veri
 pub const GET_PERMISSION_ERROR:&str = r#"There was an Error, whilst fetching your permissions."#;
 pub const SELF_CHANGE_PASSWORD_NO_PERM:&str = r#"You don't have the permission to change your password."#;
 pub const SELF_CHANGE_PASSWORD_ERROR:&str = r#"There was an error whilst trying to change your password."#;
+pub const CREATE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to create this accounts."#;
 pub const DELETE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to delete this account."#;
 pub const MODIFY_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to modify accounts."#;
 pub const MANAGE_PERMISSION_NO_PERM:&str = r#"You don't have the permission to manage permissions."#;

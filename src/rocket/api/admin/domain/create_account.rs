@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
-use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR};
+use crate::rocket::messages::{CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR, MODIFY_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
@@ -15,28 +15,37 @@ mod private{
 }
 
 #[rocket::put("/admin/<domain>/accounts", data = "<data>")]
-pub async fn create_account(mut session: Session, domain: &'_ str, data: rocket::form::Form<private::CreateAccount<'_>>, cookie_jar: &'_ CookieJar<'_>) -> Return {
+pub async fn create_account(session: Option<Session>, domain: &'_ str, data: rocket::form::Form<private::CreateAccount<'_>>, cookie_jar: &'_ CookieJar<'_>) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
+    let mut session = match session {
+        None => return unauth_error,
+        Some(v) => v,
+    };
+
     match session.refresh_permissions(cookie_jar).await {
         Ok(()) => {},
         Err(err) => {
             log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
                 content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
             }));
         }
     }
 
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, CREATE_ACCOUNT_NO_PERM)),
+    }));
     let permission = match session.get_permissions().get(domain) {
-        None => return unauth_error,
+        None => return no_perm,
         Some(v) => v,
     };
     if !permission.get_admin() && !permission.get_create_accounts() {
-        return unauth_error
+        return no_perm;
     }
 
     let db = crate::get_mysql().await;
