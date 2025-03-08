@@ -3,7 +3,7 @@ mod rocket;
 
 pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
     static MYSQL: tokio::sync::OnceCell<sqlx::postgres::PgPool> = tokio::sync::OnceCell::const_new();
-    MYSQL.get_or_init(async || {
+    MYSQL.get_or_init(||async {
         let options = sqlx::postgres::PgConnectOptions::new();
         let pool = sqlx::Pool::connect_with(options).await.expect("Failed to connect to postgres");
         log::info!("Connected to postgres");
