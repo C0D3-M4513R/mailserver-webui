@@ -14,6 +14,7 @@ pub struct Permission {
     list_accounts: bool,
     create_accounts: bool,
     modify_accounts: bool,
+    delete_accounts: bool,
     create_alias: bool,
     modify_alias: bool,
     list_permissions: bool,
@@ -31,6 +32,7 @@ impl Permission {
         list_accounts: bool,
         create_accounts: bool,
         modify_accounts: bool,
+        delete_accounts: bool,
         create_alias: bool,
         modify_alias: bool,
         list_permissions: bool,
@@ -46,6 +48,7 @@ impl Permission {
             list_accounts,
             create_accounts,
             modify_accounts,
+            delete_accounts,
             create_alias,
             modify_alias,
             list_permissions,
@@ -61,6 +64,7 @@ impl Permission {
     #[inline] pub const fn get_list_accounts(&self) -> bool { self.list_accounts }
     #[inline] pub const fn get_create_accounts(&self) -> bool { self.create_accounts }
     #[inline] pub const fn get_modify_accounts(&self) -> bool { self.modify_accounts }
+    #[inline] pub const fn get_delete_accounts(&self) -> bool { self.delete_accounts }
     #[inline] pub const fn get_create_alias(&self) -> bool { self.create_alias }
     #[inline] pub const fn get_modify_alias(&self) -> bool { self.modify_alias }
     #[inline] pub const fn get_list_permissions(&self) -> bool { self.list_permissions }
@@ -89,6 +93,7 @@ SELECT
         perm.delete_subdomain as "delete_subdomain!",
         perm.list_accounts as "list_accounts!",
         perm.create_accounts as "create_accounts!",
+        perm.delete_accounts as "delete_accounts!",
         perm.modify_accounts as "modify_accounts!",
         perm.create_alias as "create_alias!",
         perm.modify_alias as "modify_alias!",
@@ -111,6 +116,7 @@ FROM flattened_web_domain_permissions perm
                 v.list_accounts,
                 v.create_accounts,
                 v.modify_accounts,
+                v.delete_accounts,
                 v.create_alias,
                 v.modify_alias,
                 v.list_permissions,

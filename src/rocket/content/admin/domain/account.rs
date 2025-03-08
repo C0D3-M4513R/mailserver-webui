@@ -48,6 +48,7 @@ SELECT
     target_perms.list_accounts,
     target_perms.create_accounts,
     target_perms.modify_accounts,
+    target_perms.delete_accounts,
     target_perms.create_alias,
     target_perms.modify_alias,
     target_perms.list_permissions,
@@ -76,6 +77,12 @@ WHERE users.id = $1
         "disabled"
     };
 
+    let delete = if permissions.get_admin() || permissions.get_delete_accounts() {
+        format!(r#"<form method="POST"><input type="hidden" name="_method" value="DELETE"><input type="submit" value="Delete Account"></form>"#)
+    } else {
+        String::new()
+    };
+
     let email = &account.email;
     let account_info = format!(r#"
 <h2>Account Information:</h2>
@@ -91,13 +98,13 @@ WHERE users.id = $1
     <label>Password: <input type="password" name="password" {modify_account} /></label>
     <input type="submit" value="Update Password" {modify_account}/>
 </form>
+{delete}
     "#);
 
     let domain_id = permissions.get_domain_id();
     let list_permissions = if permissions.get_admin() || permissions.get_list_permissions() {
         let p_admin = permissions.get_admin();
         let p_manage_perm = permissions.get_manage_permissions();
-        let modify = p_admin || p_manage_perm;
         fn format_value(display: &str, name: &str, value: Option<bool>, enabled: bool) -> String {
             let v_value = match value {
                 Some(true) => "true",
@@ -127,6 +134,7 @@ WHERE users.id = $1
         let list_accounts = format_value(       "List Accounts: ",          "list_accounts",        account.list_accounts,       p_manage_perm && (p_admin || permissions.get_list_accounts()));
         let create_accounts = format_value(     "Create Accounts: ",        "create_accounts",      account.create_accounts,     p_manage_perm && (p_admin || permissions.get_create_accounts()));
         let modify_accounts = format_value(     "Modify Accounts: ",        "modify_accounts",      account.modify_accounts,     p_manage_perm && (p_admin || permissions.get_modify_accounts()));
+        let delete_accounts = format_value(     "Delete Accounts: ",        "delete_accounts",      account.delete_accounts,     p_manage_perm && (p_admin || permissions.get_delete_accounts()));
         let create_alias = format_value(        "Create Alias: ",           "create_alias",         account.create_alias,        p_manage_perm && (p_admin || permissions.get_create_alias()));
         let modify_alias = format_value(        "Modify Alias: ",           "modify_alias",         account.modify_alias,        p_manage_perm && (p_admin || permissions.get_modify_alias()));
         let list_permissions = format_value(    "List Permissions: ",       "list_permissions",     account.list_permissions,    p_manage_perm && (p_admin || permissions.get_list_permissions()));
@@ -145,6 +153,7 @@ WHERE users.id = $1
     {list_accounts}<br/>
     {create_accounts}<br/>
     {modify_accounts}<br/>
+    {delete_accounts}<br/>
     {create_alias}<br/>
     {modify_alias}<br/>
     {list_permissions}<br/>

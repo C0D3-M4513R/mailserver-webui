@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{template, unauth_error};
-use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR, INVALID_CONTENT_TYPE, GET_PERMISSION_ERROR};
+use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
@@ -12,13 +12,6 @@ mod private {
         pub accounts: HashMap<i32, bool>,
     }
 }
-
-pub const DELETE_ACCOUNTS_MEDIA_TYPE: rocket::http::MediaType = rocket::http::MediaType::const_new(
-    "application",
-    "vnd.com.c0d3m4513r.mail-admin_delete_account.v1+json",
-    &[]
-);
-pub const DELETE_ACCOUNTS_CONTENT_TYPE: rocket::http::ContentType = rocket::http::ContentType(DELETE_ACCOUNTS_MEDIA_TYPE);
 
 #[rocket::delete("/admin/<domain>/accounts/<user_id>")]
 pub async fn admin_domain_account_delete(
@@ -56,11 +49,14 @@ pub async fn admin_domain_accounts_delete(
     }
 
     let permissions = match session.get_permissions().get(domain) {
-        None => return unauth,
+        None => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(template(domain, DELETE_ACCOUNT_NO_PERM)),
+        })),
         Some(v) => v,
     };
 
-    if !permissions.get_admin() && !permissions.get_modify_accounts(){
+    if !permissions.get_admin() && !permissions.get_delete_accounts(){
         return unauth;
     }
 

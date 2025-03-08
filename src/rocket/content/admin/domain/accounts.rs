@@ -79,6 +79,11 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
         String::new()
     };
 
+    let delete = if permissions.get_admin() || permissions.get_delete_accounts(){
+        r#"<input type="hidden" name="_method" value="DELETE" /><input type="submit" value="Delete Selected Accounts" />"#
+    } else {
+        ""
+    };
     let header = domain_linklist(&session, domain);
     let error = error.unwrap_or("");
     Return::Content((rocket::http::Status::Ok, TypedContent{
@@ -89,8 +94,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
 {new_account}
 <h2>Existing Accounts:</h2>
 <form method="POST">
-<input type="hidden" name="_method" value="DELETE" />
-<input type="submit" value="Delete Selected Accounts" />
+{delete}
     <table>
         <tr>
             <th></th>
@@ -99,7 +103,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
         </tr>
         {accounts}
     </table>
-    </form>
+</form>
         "#).as_str())),
     }))
 }
