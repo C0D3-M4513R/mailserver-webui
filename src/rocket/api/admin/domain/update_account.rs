@@ -153,6 +153,17 @@ pub async fn admin_domain_account_password_put(
         Ok(()) => {},
     }
 
+    match transaction.commit().await {
+        Err(err) => {
+            log::error!("Error comitting password change Transaction: {err}");
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some("There was an error setting the account Password.")).await;
+            err.override_status(rocket::http::Status::InternalServerError);
+            return err;
+        }
+        Ok(()) => {},
+    }
+
+
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
 }
 

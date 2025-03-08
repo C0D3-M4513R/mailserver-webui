@@ -78,7 +78,8 @@ pub async fn set_password(transaction: &mut sqlx::PgTransaction<'_>, user_id: i3
     let argon = argon2::Argon2::new(ARGON2_ALGO, ARGON2_VERSION, ARGON2_PARAMS);
     let hash = argon.hash_password(password.as_bytes(), salt.as_salt()).map_err(|err|Error::HashNewPassword(err))?;
     sqlx::query!(r#"UPDATE virtual_users SET password = $2, dovecot_type='{ARGON2ID}' WHERE id = $1"#, user_id, hash.to_string())
-        .execute(&mut **transaction).await.map_err(|err|Error::SetNewPassword(err))?;
+        .execute(&mut **transaction).await
+        .map_err(|err|Error::SetNewPassword(err))?;
 
     Ok(())
 }
