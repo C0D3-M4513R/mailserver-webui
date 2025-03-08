@@ -5,11 +5,11 @@ use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
 #[rocket::get("/admin/<domain>/accounts/<user_id>")]
-pub async fn admin_domain_account_get(session: Option<Session>, domain: &str, user_id:i32) -> Return {
+pub async fn admin_domain_account_get(session: Option<Session>, domain: &str, user_id:i64) -> Return {
     admin_domain_account_get_impl(session, domain, user_id, None).await
 }
 
-pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Session>, domain: &str, user_id:i32, error: Option<&str>) -> Return {
+pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Session>, domain: &str, user_id:i64, error: Option<&str>) -> Return {
     let session = match session {
         None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
         Some(v) => v,
@@ -38,8 +38,7 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
     let db = crate::get_mysql().await;
     let account = match sqlx::query!(r#"
 SELECT
-    users.id,
-    users.email,
+    users.email AS "email!",
     target_perms.admin,
     target_perms.view_domain,
     target_perms.list_subdomain,

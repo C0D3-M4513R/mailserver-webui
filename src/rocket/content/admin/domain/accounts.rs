@@ -38,8 +38,8 @@ pub(in crate::rocket) async fn admin_domain_accounts_get_impl(session: Option<Se
     let db = crate::get_mysql().await;
     let accounts = match sqlx::query!(r#"
 SELECT
-    users.id,
-    users.email
+    users.id AS "id!",
+    users.email AS "email!"
 FROM virtual_users users
 WHERE users.domain_id = $1"#, permissions.get_domain_id())
         .fetch_all(db)

@@ -5,7 +5,7 @@ use rocket::request::Outcome;
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
 pub struct Permission {
-    domain_id: i32,
+    domain_id: i64,
     admin: bool,
     view_domain: bool,
     list_subdomain: bool,
@@ -23,7 +23,7 @@ pub struct Permission {
 
 impl Permission {
     pub fn new(
-        domain_id: i32,
+        domain_id: i64,
         admin: bool,
         view_domain: bool,
         list_subdomain: bool,
@@ -55,7 +55,7 @@ impl Permission {
             manage_permissions,
         }
     }
-    #[inline] pub const fn get_domain_id(&self) -> i32 { self.domain_id }
+    #[inline] pub const fn get_domain_id(&self) -> i64 { self.domain_id }
     #[inline] pub const fn get_admin(&self) -> bool { self.admin }
     #[inline] pub const fn get_view_domain(&self) -> bool { self.view_domain }
     #[inline] pub const fn get_list_subdomain(&self) -> bool { self.list_subdomain }
@@ -73,14 +73,14 @@ impl Permission {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Session {
-    user_id: i32,
+    user_id: i64,
     self_change_password: bool,
     permissions: std::collections::HashMap<String, Permission>,
 }
 
 impl Session{
     #[inline]
-    pub async fn new(user_id: i32, self_change_password: bool) -> anyhow::Result<Self> {
+    pub async fn new(user_id: i64, self_change_password: bool) -> anyhow::Result<Self> {
         let db = crate::get_mysql().await;
         let permissions = sqlx::query!(r#"
 SELECT
@@ -181,7 +181,7 @@ FROM flattened_web_domain_permissions perm
         Ok(cookie)
     }
 
-    #[inline] pub const fn get_user_id(&self) -> i32 { self.user_id }
+    #[inline] pub const fn get_user_id(&self) -> i64 { self.user_id }
     #[inline] pub const fn get_self_change_password(&self) -> bool { self.self_change_password }
     #[inline] pub const fn get_permissions(&self) -> &std::collections::HashMap<String, Permission> { &self.permissions }
 }

@@ -55,7 +55,7 @@ mod private{
 pub async fn admin_domain_account_email_put(
     mut session: Session,
     domain: &'_ str,
-    user_id: i32,
+    user_id: i64,
     data: rocket::form::Form<private::UpdateAccountEmail<'_>>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
@@ -99,7 +99,7 @@ pub async fn admin_domain_account_email_put(
 pub async fn admin_domain_account_password_put(
     mut session: Session,
     domain: &'_ str,
-    user_id: i32,
+    user_id: i64,
     data: rocket::form::Form<private::UpdateAccountPassword<'_>>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
@@ -166,7 +166,7 @@ pub async fn admin_domain_account_password_put(
 pub async fn admin_domain_account_permissions_put(
     mut session: Session,
     domain: &'_ str,
-    user_id: i32,
+    user_id: i64,
     data: rocket::form::Form<private::Permission>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
@@ -203,8 +203,8 @@ pub async fn admin_domain_account_permissions_put(
 MERGE INTO web_domain_permissions AS perm
     USING (
         SELECT
-            $1::int AS domain_id,
-            $2::int AS target_user_id,
+            $1::bigint AS domain_id,
+            $2::bigint AS target_user_id,
             CASE WHEN slf.manage_permissions AND (slf.admin OR slf.admin)              THEN $4::bool  ELSE target.admin                 END AS admin,
             CASE WHEN slf.manage_permissions AND (slf.admin OR slf.view_domain)        THEN $5::bool  ELSE target.view_domain           END AS view_domain,
             CASE WHEN slf.manage_permissions AND (slf.admin OR slf.list_subdomain)     THEN $6::bool  ELSE target.list_subdomain        END AS list_subdomain,

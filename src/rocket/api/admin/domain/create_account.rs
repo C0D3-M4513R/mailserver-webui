@@ -48,7 +48,7 @@ pub async fn create_account(mut session: Session, domain: &'_ str, data: rocket:
         }
     };
 
-    let id = match sqlx::query!("INSERT INTO virtual_users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id", permission.get_domain_id(), data.email).fetch_one(db).await {
+    let id = match sqlx::query!("INSERT INTO users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id", permission.get_domain_id(), data.email).fetch_one(db).await {
         Ok(v) => v.id,
         Err(err) => {
             log::error!("Error creating account: {err}");

@@ -9,7 +9,7 @@ mod private {
 
     #[derive(Debug, rocket::form::FromForm)]
     pub struct DeleteAccounts{
-        pub accounts: HashMap<i32, bool>,
+        pub accounts: HashMap<i64, bool>,
     }
 }
 
@@ -17,7 +17,7 @@ mod private {
 pub async fn admin_domain_account_delete(
     session: Session,
     domain: &str,
-    user_id: i32,
+    user_id: i64,
     cookie_jar: &'_ rocket::http::CookieJar<'_>,
 ) -> Return {
     let mut accounts = std::collections::HashMap::new();

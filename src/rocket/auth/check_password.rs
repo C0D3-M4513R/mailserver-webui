@@ -28,12 +28,12 @@ const ARGON2_PARAMS: argon2::Params = match argon2::Params::new(
 };
 // const ARGON2_PARAMS: argon2::Params = argon2::Params::DEFAULT;
 
-pub async fn check_password(user_id: i32, password: &str, new_password: Option<&str>) -> Result<(), Error> {
+pub async fn check_password(user_id: i64, password: &str, new_password: Option<&str>) -> Result<(), Error> {
     let db = crate::get_mysql().await;
     let mut transaction = db.begin().await.map_err(|e| Error::TransactionBegin(e))?;
     let password_hash = sqlx::query!(r#"
 SELECT
-    password
+    password AS "password!"
 FROM virtual_users
 WHERE id = $1
 FOR UPDATE"#, user_id)
@@ -71,7 +71,7 @@ FOR UPDATE"#, user_id)
     Ok(())
 }
 
-pub async fn set_password(transaction: &mut sqlx::PgTransaction<'_>, user_id: i32, password: &str) -> Result<(), Error> {
+pub async fn set_password(transaction: &mut sqlx::PgTransaction<'_>, user_id: i64, password: &str) -> Result<(), Error> {
     let salt = argon2::password_hash::SaltString::generate(&mut password_hash::rand_core::OsRng);
     use argon2::password_hash::PasswordHasher;
 
