@@ -3,4 +3,3 @@
 /.direnv/
 /.env
 /Rocket.toml
-/sql/export.sql
