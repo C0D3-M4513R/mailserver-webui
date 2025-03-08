@@ -71,13 +71,14 @@ pub async fn admin_domain_accounts_delete(
 
     let db = crate::get_mysql().await;
     let accounts = data.into_inner().accounts.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
+    let domain_id = permissions.get_domain_id();
     match sqlx::query!(
         r#"
         DELETE FROM virtual_users users
-           WHERE users.id = ANY($1) AND users.domain_id IN (SELECT id FROM virtual_domains WHERE name = $2)
+           WHERE users.id = ANY($1) AND users.domain_id = $2
         "#,
         &accounts,
-        domain
+        domain_id
     ).execute(db).await {
         Ok(_) => Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts"))),
         Err(err) => {
