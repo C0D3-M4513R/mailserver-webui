@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nMERGE INTO web_domain_permissions AS perm\n    USING (\n        SELECT\n            $1::int AS domain_id,\n            $2::int AS target_user_id,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.admin)              THEN $4::bool  ELSE target.admin                 END AS admin,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.view_domain)        THEN $5::bool  ELSE target.view_domain           END AS view_domain,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.list_subdomain)     THEN $6::bool  ELSE target.list_subdomain        END AS list_subdomain,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.create_subdomain)   THEN $7::bool  ELSE target.create_subdomain      END AS create_subdomain,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.delete_subdomain)   THEN $8::bool  ELSE target.delete_subdomain      END AS delete_subdomain,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.list_accounts)      THEN $9::bool  ELSE target.list_accounts         END AS list_accounts,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.create_accounts)    THEN $10::bool ELSE target.create_accounts       END AS create_accounts,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.modify_accounts)    THEN $11::bool ELSE target.modify_accounts       END AS modify_accounts,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.delete_accounts)    THEN $12::bool ELSE target.delete_accounts       END AS delete_accounts,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.create_alias)       THEN $13::bool ELSE target.create_alias          END AS create_alias,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.modify_alias)       THEN $14::bool ELSE target.modify_alias          END AS modify_alias,\n            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.list_permissions)   THEN $15::bool ELSE target.list_permissions      END AS list_permissions,\n            CASE WHEN slf.admin AND slf.manage_permissions                             THEN $16::bool ELSE target.manage_permissions    END AS manage_permissions\n        FROM web_domain_permissions target\n            JOIN flattened_web_domain_permissions slf ON slf.domain_id = target.domain_id AND slf.user_id = $3\n        WHERE target.domain_id = $1 AND target.user_id = $2\n   ) AS row ON perm.domain_id = row.domain_id AND perm.user_id = row.target_user_id\nWHEN MATCHED THEN\n    UPDATE SET\n        domain_id = row.domain_id,\n        user_id = row.target_user_id,\n        admin = row.admin,\n        view_domain = row.view_domain,\n        list_subdomain = row.list_subdomain,\n        create_subdomain = row.create_subdomain,\n        delete_subdomain = row.delete_subdomain,\n        list_accounts = row.list_accounts,\n        create_accounts = row.create_accounts,\n        modify_accounts = row.modify_accounts,\n        delete_accounts = row.delete_accounts,\n        create_alias = row.create_alias,\n        modify_alias = row.modify_alias,\n        list_permissions = row.list_permissions,\n        manage_permissions = row.manage_permissions\nWHEN NOT MATCHED THEN\n    INSERT (\n        domain_id,\n        user_id,\n        admin,\n        view_domain,\n        list_subdomain,\n        create_subdomain,\n        delete_subdomain,\n        list_accounts,\n        create_accounts,\n        modify_accounts,\n        delete_accounts,\n        create_alias,\n        modify_alias,\n        list_permissions,\n        manage_permissions\n    ) VALUES (\n        row.domain_id,\n        row.target_user_id,\n        row.admin,\n        row.view_domain,\n        row.list_subdomain,\n        row.create_subdomain,\n        row.delete_subdomain,\n        row.list_accounts,\n        row.create_accounts,\n        row.modify_accounts,\n        row.delete_accounts,\n        row.create_alias,\n        row.modify_alias,\n        row.list_permissions,\n        row.manage_permissions\n    )\n    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7cded793b29e21fa7329541e2bf0fd06e29ec0642573c5edd5d5376231eaeb86"
+}

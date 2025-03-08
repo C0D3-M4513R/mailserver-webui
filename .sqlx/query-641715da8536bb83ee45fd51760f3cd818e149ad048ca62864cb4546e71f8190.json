@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n        perm.domain_name as \"domain!\",\n        perm.domain_id as \"domain_id!\",\n        perm.admin as \"admin!\",\n        perm.view_domain as \"view_domain!\",\n        perm.list_subdomain as \"list_subdomain!\",\n        perm.create_subdomain as \"create_subdomain!\",\n        perm.delete_subdomain as \"delete_subdomain!\",\n        perm.list_accounts as \"list_accounts!\",\n        perm.create_accounts as \"create_accounts!\",\n        perm.modify_accounts as \"modify_accounts!\",\n        perm.create_alias as \"create_alias!\",\n        perm.modify_alias as \"modify_alias!\",\n        perm.list_permissions as \"list_permissions!\",\n        perm.manage_permissions as \"manage_permissions!\"\nFROM flattened_web_domain_permissions perm\n        WHERE perm.user_id = $1",
+  "query": "\nSELECT\n        perm.domain_name as \"domain!\",\n        perm.domain_id as \"domain_id!\",\n        perm.admin as \"admin!\",\n        perm.view_domain as \"view_domain!\",\n        perm.list_subdomain as \"list_subdomain!\",\n        perm.create_subdomain as \"create_subdomain!\",\n        perm.delete_subdomain as \"delete_subdomain!\",\n        perm.list_accounts as \"list_accounts!\",\n        perm.create_accounts as \"create_accounts!\",\n        perm.delete_accounts as \"delete_accounts!\",\n        perm.modify_accounts as \"modify_accounts!\",\n        perm.create_alias as \"create_alias!\",\n        perm.modify_alias as \"modify_alias!\",\n        perm.list_permissions as \"list_permissions!\",\n        perm.manage_permissions as \"manage_permissions!\"\nFROM flattened_web_domain_permissions perm\n        WHERE perm.user_id = $1",
   "describe": {
     "columns": [
       {
@@ -50,26 +50,31 @@
       },
       {
         "ordinal": 9,
-        "name": "modify_accounts!",
+        "name": "delete_accounts!",
         "type_info": "Bool"
       },
       {
         "ordinal": 10,
-        "name": "create_alias!",
+        "name": "modify_accounts!",
         "type_info": "Bool"
       },
       {
         "ordinal": 11,
-        "name": "modify_alias!",
+        "name": "create_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 12,
-        "name": "list_permissions!",
+        "name": "modify_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 13,
+        "name": "list_permissions!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 14,
         "name": "manage_permissions!",
         "type_info": "Bool"
       }
@@ -93,8 +98,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "3ccc702d0336a59e4c3df450153c4fd72838cd3a144df1dac1f18a335adf34aa"
+  "hash": "641715da8536bb83ee45fd51760f3cd818e149ad048ca62864cb4546e71f8190"
 }
