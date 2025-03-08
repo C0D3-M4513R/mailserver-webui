@@ -3,11 +3,10 @@ use base64::Engine;
 use rocket::Request;
 use rocket::request::Outcome;
 
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
 pub struct Permission {
     domain_id: i32,
     admin: bool,
-    web_login: bool,
     view_domain: bool,
     list_subdomain: bool,
     create_subdomain: bool,
@@ -25,7 +24,6 @@ impl Permission {
     pub fn new(
         domain_id: i32,
         admin: bool,
-        web_login: bool,
         view_domain: bool,
         list_subdomain: bool,
         create_subdomain: bool,
@@ -41,7 +39,6 @@ impl Permission {
         Self {
             domain_id,
             admin,
-            web_login,
             view_domain,
             list_subdomain,
             create_subdomain,
@@ -66,7 +63,6 @@ impl Permission {
     #[inline] pub const fn get_modify_accounts(&self) -> bool { self.modify_accounts }
     #[inline] pub const fn get_create_alias(&self) -> bool { self.create_alias }
     #[inline] pub const fn get_modify_alias(&self) -> bool { self.modify_alias }
-    #[inline] pub const fn get_web_login(&self) -> bool { self.web_login }
     #[inline] pub const fn get_list_permissions(&self) -> bool { self.list_permissions }
     #[inline] pub const fn get_manage_permissions(&self) -> bool { self.manage_permissions }
 }
@@ -87,7 +83,6 @@ SELECT
         perm.domain_name as "domain!",
         perm.domain_id as "domain_id!",
         perm.admin as "admin!",
-        perm.web_login as "web_login!",
         perm.view_domain as "view_domain!",
         perm.list_subdomain as "list_subdomain!",
         perm.create_subdomain as "create_subdomain!",
@@ -100,7 +95,7 @@ SELECT
         perm.list_permissions as "list_permissions!",
         perm.manage_permissions as "manage_permissions!"
 FROM flattened_web_domain_permissions perm
-        WHERE perm.web_login = true AND perm.user_id = $1"#, user_id)
+        WHERE perm.user_id = $1"#, user_id)
             .fetch_all(db)
             .await;
         let permissions = permissions?;
@@ -109,7 +104,6 @@ FROM flattened_web_domain_permissions perm
             (v.domain, super::session::Permission::new(
                 v.domain_id,
                 v.admin,
-                v.web_login,
                 v.view_domain,
                 v.list_subdomain,
                 v.create_subdomain,

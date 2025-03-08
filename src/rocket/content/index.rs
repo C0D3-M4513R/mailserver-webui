@@ -56,9 +56,8 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
         COALESCE(user_perm.self_change_password, true) as "self_change_pw!"
     FROM  virtual_users          users
     JOIN  virtual_domains        domains    ON users.domain_id = domains.id
-    JOIN  web_domain_permissions perms       ON perms.user_id   = users.id
     LEFT JOIN user_permission   user_perm  ON user_perm.id = users.id
-    WHERE perms.web_login = true AND users.email = $1 AND domains.name = $2"#, username, domain)
+    WHERE users.email = $1 AND domains.name = $2"#, username, domain)
         .fetch_one(mysql)
         .await
     {

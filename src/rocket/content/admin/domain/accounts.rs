@@ -25,7 +25,6 @@ pub(in crate::rocket) async fn admin_domain_accounts_get_impl(session: Option<Se
 
     if !permissions.get_admin() {
         if
-        !permissions.get_web_login() ||
             !permissions.get_view_domain() ||
             !permissions.get_list_accounts()
         {
@@ -50,7 +49,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
             let id = v.id;
             let email = v.email;
             let full_email = format!("{email}@{domain}");
-            let modify = if permissions.get_modify_accounts() {
+            let modify = if permissions.get_admin() || permissions.get_modify_accounts() {
                 format!(r#"<a href="/admin/{domain}/accounts/{id}">Modify</a>"#)
             } else {
                 String::new()
@@ -68,7 +67,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
         }
     };
 
-    let new_account = if permissions.get_create_accounts() {
+    let new_account = if permissions.get_admin() || permissions.get_create_accounts() {
         format!(r#"<h2>Create new Account:</h2>
 <form method="POST">
     <input type="hidden" name="_method" value="PUT" />

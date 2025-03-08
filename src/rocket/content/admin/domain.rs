@@ -32,9 +32,9 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
     let list_subdomain;
     match session.get_permissions().get(domain) {
         Some(v) => {
-            list_permissions = v.get_list_permissions();
-            list_accounts = v.get_list_accounts();
-            list_subdomain = v.get_list_subdomain();
+            list_permissions = v.get_admin() || v.get_list_permissions();
+            list_accounts = v.get_admin() || v.get_list_accounts();
+            list_subdomain = v.get_admin() || v.get_list_subdomain();
         }
         None => {
             list_permissions = false;
@@ -85,7 +85,7 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
         Some(v) => v,
     };
 
-    if !permissions.get_web_login() || !permissions.get_view_domain() {
+    if !permissions.get_admin() && !permissions.get_view_domain() {
         return Return::Content((rocket::http::Status::Forbidden, TypedContent{
             content_type: rocket::http::ContentType::HTML,
             content: Cow::Owned(unauth_error),

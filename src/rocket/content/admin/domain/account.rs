@@ -25,7 +25,6 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
 
     if !permissions.get_admin() {
         if
-        !permissions.get_web_login() ||
             !permissions.get_view_domain() ||
             !permissions.get_list_accounts()
         {
@@ -41,10 +40,21 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
 SELECT
     users.id,
     users.email,
-    target_perms.*
+    target_perms.admin,
+    target_perms.view_domain,
+    target_perms.list_subdomain,
+    target_perms.create_subdomain,
+    target_perms.delete_subdomain,
+    target_perms.list_accounts,
+    target_perms.create_accounts,
+    target_perms.modify_accounts,
+    target_perms.create_alias,
+    target_perms.modify_alias,
+    target_perms.list_permissions,
+    target_perms.manage_permissions
 FROM virtual_users users
-JOIN flattened_web_domain_permissions target_perms ON target_perms.user_id = users.id
-WHERE users.id = $1 AND target_perms.domain_id = $2
+LEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2
+WHERE users.id = $1
 "#, user_id, permissions.get_domain_id())
         .fetch_one(db)
         .await
@@ -60,7 +70,7 @@ WHERE users.id = $1 AND target_perms.domain_id = $2
         }
     };
 
-    let modify_account = if permissions.get_modify_accounts() {
+    let modify_account = if permissions.get_admin() || permissions.get_modify_accounts() {
         ""
     } else {
         "disabled"
@@ -82,6 +92,69 @@ WHERE users.id = $1 AND target_perms.domain_id = $2
     <input type="submit" value="Update Password" {modify_account}/>
 </form>
     "#);
+
+    let domain_id = permissions.get_domain_id();
+    let list_permissions = if permissions.get_admin() || permissions.get_list_permissions() {
+        let p_admin = permissions.get_admin();
+        let p_manage_perm = permissions.get_manage_permissions();
+        let modify = p_admin || p_manage_perm;
+        fn format_value(display: &str, name: &str, value: Option<bool>, enabled: bool) -> String {
+            let v_value = match value {
+                Some(true) => "true",
+                Some(false) => "false",
+                None => "null",
+            };
+            let extra_disabled = if enabled { String::new() } else { format!(r#"<input type="hidden" name="{name}" value="{v_value}"/>"#) };
+            let enabled = if enabled { "" } else { "disabled" };
+            const SELECTED:&str = r#"selected="selected""#;
+            let (v_true, v_false, v_null) = match value {
+                Some(true) => (SELECTED, "", ""),
+                Some(false) => ("", SELECTED, ""),
+                None => ("", "", SELECTED),
+            };
+            format!(r#"{extra_disabled}<label>{display}<select name="{name}" {enabled} >
+    <option value="true" {v_true}>True</option>
+    <option value="false" {v_false}>False</option>
+    <option value="null" {v_null}>Inherited</option>
+</select></label>
+            "#)
+        }
+        let admin = format_value(               "Admin: ",                  "admin",                account.admin,               p_manage_perm && (p_admin || permissions.get_admin()));
+        let view_domain = format_value(         "View Domain: ",            "view_domain",          account.view_domain,         p_manage_perm && (p_admin || permissions.get_view_domain()));
+        let list_subdomain = format_value(      "List Subdomain: ",         "list_subdomain",       account.list_subdomain,      p_manage_perm && (p_admin || permissions.get_list_subdomain()));
+        let create_subdomain = format_value(    "Create Subdomain: ",       "create_subdomain",     account.create_subdomain,    p_manage_perm && (p_admin || permissions.get_create_subdomain()));
+        let delete_subdomain = format_value(    "Delete Subdomain: ",       "delete_subdomain",     account.delete_subdomain,    p_manage_perm && (p_admin || permissions.get_delete_subdomain()));
+        let list_accounts = format_value(       "List Accounts: ",          "list_accounts",        account.list_accounts,       p_manage_perm && (p_admin || permissions.get_list_accounts()));
+        let create_accounts = format_value(     "Create Accounts: ",        "create_accounts",      account.create_accounts,     p_manage_perm && (p_admin || permissions.get_create_accounts()));
+        let modify_accounts = format_value(     "Modify Accounts: ",        "modify_accounts",      account.modify_accounts,     p_manage_perm && (p_admin || permissions.get_modify_accounts()));
+        let create_alias = format_value(        "Create Alias: ",           "create_alias",         account.create_alias,        p_manage_perm && (p_admin || permissions.get_create_alias()));
+        let modify_alias = format_value(        "Modify Alias: ",           "modify_alias",         account.modify_alias,        p_manage_perm && (p_admin || permissions.get_modify_alias()));
+        let list_permissions = format_value(    "List Permissions: ",       "list_permissions",     account.list_permissions,    p_manage_perm && (p_admin || permissions.get_list_permissions()));
+        let manage_permissions = format_value(  "Manage Permissions: ",     "manage_permissions",   account.manage_permissions,  p_manage_perm && (p_admin || permissions.get_manage_permissions()));
+        format!(r#"
+<h2>Permissions:</h2>
+<p>Notice: Without List permissions, Modification permissions are useless. Also, Modification permission imply Delete permissions</p>
+<form method="POST" action="{user_id}/permissions" onsubmit="(event)=>event.target.reset()">
+    <input type="hidden" name="_method" value="PUT"/>
+    <input type="hidden" name="domain_id" value="{domain_id}"/>
+    {admin} This Permission overrides everything else (except manage permissions), if set.<br/>
+    {view_domain}<br/>
+    {list_subdomain}<br/>
+    {create_subdomain}<br/>
+    {delete_subdomain}<br/>
+    {list_accounts}<br/>
+    {create_accounts}<br/>
+    {modify_accounts}<br/>
+    {create_alias}<br/>
+    {modify_alias}<br/>
+    {list_permissions}<br/>
+    {manage_permissions}<br/>
+    <input type="submit" value="Save Changes"/>
+</form>
+        "#)
+    } else {
+        String::new()
+    };
 
     let header = domain_linklist(&session, domain);
     let error = error.unwrap_or("");

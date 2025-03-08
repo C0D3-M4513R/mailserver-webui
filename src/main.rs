@@ -49,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
             rocket::admin_domain_account_delete,
             rocket::admin_domain_account_email_put,
             rocket::admin_domain_account_password_put,
+            rocket::admin_domain_account_permissions_put,
 
             rocket::post_refresh_session,
             rocket::admin_get_change_pw,
