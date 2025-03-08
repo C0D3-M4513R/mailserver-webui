@@ -44,7 +44,7 @@ FROM virtual_flattened_domains domains
 JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id
 WHERE
     (permissions.view_domain OR permissions.admin) AND
-    domains.super = $1 AND permissions = $2"#, permissions.get_domain_id(), session.get_user_id())
+    domains.super = $1 AND permissions.user_id = $2"#, permissions.get_domain_id(), session.get_user_id())
         .fetch_all(db)
         .await
     {

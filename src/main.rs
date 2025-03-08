@@ -42,6 +42,7 @@ async fn main() -> anyhow::Result<()> {
 
             rocket::admin_get,
             rocket::admin_domain_get,
+            rocket::admin_domain_name_put,
             //Account Overview
             rocket::admin_domain_accounts_get,
             rocket::admin_domain_accounts_put,

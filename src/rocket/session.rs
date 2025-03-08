@@ -8,6 +8,7 @@ pub struct Permission {
     domain_id: i64,
     admin: bool,
     view_domain: bool,
+    modify_domain: bool,
     list_subdomain: bool,
     create_subdomain: bool,
     delete_subdomain: bool,
@@ -26,6 +27,7 @@ impl Permission {
         domain_id: i64,
         admin: bool,
         view_domain: bool,
+        modify_domain: bool,
         list_subdomain: bool,
         create_subdomain: bool,
         delete_subdomain: bool,
@@ -42,6 +44,7 @@ impl Permission {
             domain_id,
             admin,
             view_domain,
+            modify_domain,
             list_subdomain,
             create_subdomain,
             delete_subdomain,
@@ -58,6 +61,7 @@ impl Permission {
     #[inline] pub const fn get_domain_id(&self) -> i64 { self.domain_id }
     #[inline] pub const fn get_admin(&self) -> bool { self.admin }
     #[inline] pub const fn get_view_domain(&self) -> bool { self.view_domain }
+    #[inline] pub const fn get_modify_domain(&self) -> bool { self.modify_domain }
     #[inline] pub const fn get_list_subdomain(&self) -> bool { self.list_subdomain }
     #[inline] pub const fn get_create_subdomain(&self) -> bool { self.create_subdomain }
     #[inline] pub const fn get_delete_subdomain(&self) -> bool { self.delete_subdomain }
@@ -88,6 +92,7 @@ SELECT
         perm.domain_id as "domain_id!",
         perm.admin as "admin!",
         perm.view_domain as "view_domain!",
+        perm.modify_domain as "modify_domain!",
         perm.list_subdomain as "list_subdomain!",
         perm.create_subdomain as "create_subdomain!",
         perm.delete_subdomain as "delete_subdomain!",
@@ -110,6 +115,7 @@ FROM flattened_web_domain_permissions perm
                 v.domain_id,
                 v.admin,
                 v.view_domain,
+                v.modify_domain,
                 v.list_subdomain,
                 v.create_subdomain,
                 v.delete_subdomain,

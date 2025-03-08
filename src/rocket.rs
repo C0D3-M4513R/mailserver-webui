@@ -16,7 +16,8 @@ pub use api::{
     admin_domain_subdomains_delete,
     logout_put,
     post_refresh_session,
-    admin_put_change_pw
+    admin_put_change_pw,
+    admin_domain_name_put,
 };
 pub use content::{
     index_post, index_get,

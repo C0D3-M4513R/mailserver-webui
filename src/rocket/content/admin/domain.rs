@@ -108,6 +108,12 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
     {HEADER}
     <p>Welcome to the admin page</p>
     {header}
+    <h2>Rename Domain:</h2>
+    <form method="POST" action="{domain}/name">
+        <input type="hidden" name="_method" value="PUT" />
+        <input type="text" name="name" value={domain}"/>
+        <input type="submit" value="Rename Domain"/>
+    </form>
     <p>Content could be here.</p>
 </body>
 </html>
