@@ -85,8 +85,6 @@ WHERE users.id = $1
     let email = &account.email;
     let account_info = format!(r#"
 <h2>Account Information:</h2>
-    <h3>Be VERY careful Changing the email. Any content in that Account will (currently) not transfer over to the new name.</h3>
-    <p>You should prefer using an alias, and just using the alias to send. Theoretically changing the email to something and then changing it back should work though (It is not guaranteed to though).</p>
 <form method="POST" action="{user_id}/email">
     <input type="hidden" name="_method" value="PUT" />
     <label>Email: <a><input type="text" name="email" value="{email}" {modify_account} />@{domain}</a></label>
