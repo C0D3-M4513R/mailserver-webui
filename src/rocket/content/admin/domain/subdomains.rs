@@ -41,24 +41,17 @@ SELECT
     domains.id AS "id!",
     domains.name AS "name!"
 FROM virtual_flattened_domains domains
-WHERE domains.super = $1"#, permissions.get_domain_id())
+JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id
+WHERE
+    (permissions.view_domain OR permissions.admin) AND
+    domains.super = $1 AND permissions = $2"#, permissions.get_domain_id(), session.get_user_id())
         .fetch_all(db)
         .await
     {
         Ok(v) => v.into_iter().filter_map(|v|{
-            let target_permission = session.get_permissions().get(&v.name)?;
-            if !target_permission.get_admin() && !target_permission.get_view_domain() {
-                return None;
-            }
-
             let id = v.id;
             let name = v.name;
-            let modify = if permissions.get_admin() || permissions.get_modify_accounts() {
-                format!(r#"<a href="/admin/{name}/view">Modify</a>"#)
-            } else {
-                String::new()
-            };
-
+            let modify = format!(r#"<a href="/admin/{name}/view">Modify</a>"#);
             Some(format!(r#"<tr><td><input class="domain-select" type="checkbox" name="domains[{id}]"/></td><td>{name}</td><td>{modify}</td></tr>"#))
         }).fold(String::new(), |a,b|format!("{a}{b}")),
         Err(err) => {
