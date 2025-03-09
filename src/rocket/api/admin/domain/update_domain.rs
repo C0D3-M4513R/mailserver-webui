@@ -1,17 +1,18 @@
 use std::borrow::Cow;
 use rocket::http::CookieJar;
+use crate::rocket::auth::permissions::UpdatePermissions;
 use crate::rocket::content::admin::domain::{template, unauth_error};
+use crate::rocket::content::admin::domain::permissions::admin_domain_permissions_get_impl;
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
-use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR, MODIFY_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_DOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
-
 mod private{
-    #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
+    #[derive(rocket::form::FromForm)]
     pub struct RenameSubdomain<'a>{
         pub name: &'a str,
     }
-    #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
+    #[derive(rocket::form::FromForm)]
     pub struct AcceptsEmail{
         pub accepts_email: bool,
     }
@@ -108,4 +109,70 @@ pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: 
     };
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/view")))
+}
+
+
+#[rocket::put("/admin/<domain>/permissions", data = "<data>")]
+pub async fn admin_domain_permissions_put(
+    session: Option<Session>,
+    domain: &'_ str,
+    data: rocket::form::Form<UpdatePermissions>,
+    cookie_jar: &'_ CookieJar<'_>
+) -> Return {
+    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(unauth_error(domain)),
+    }));
+    let mut session = match session {
+        None => return unauth_error,
+        Some(v) => v,
+    };
+
+    match session.refresh_permissions(cookie_jar).await{
+        Ok(()) => {},
+        Err(err) => {
+            log::error!("Error refreshing permissions: {err}");
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
+            }));
+        }
+    }
+
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, MANAGE_PERMISSION_NO_PERM)),
+    }));
+    let permission = match session.get_permissions().get(domain) {
+        None => return no_perm,
+        Some(v) => v,
+    };
+    if !permission.get_admin() && !permission.get_manage_permissions() {
+        return no_perm;
+    }
+
+    match data.apply_perms(session.get_user_id(), permission.get_domain_id()).await {
+        Ok(_) => {  },
+        Err(err) => {
+            log::error!("Error applying account permissions: {err}");
+            let mut err = admin_domain_permissions_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
+            err.override_status(rocket::http::Status::InternalServerError);
+            return err;
+        }
+    };
+
+    if data.users.contains_key(&session.get_user_id()) && !permission.get_is_owner() {
+        match session.refresh_permissions(cookie_jar).await {
+            Ok(()) => {},
+            Err(err) => {
+                log::error!("Error refreshing permissions: {err}");
+                return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                    content_type: rocket::http::ContentType::HTML,
+                    content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
+                }));
+            }
+        }
+    }
+
+    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/permissions")))
 }

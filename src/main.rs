@@ -14,7 +14,7 @@ pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenv::dotenv()?;
+    dotenvy::dotenv()?;
     {
         use tracing_subscriber::Layer;
         use tracing_subscriber::layer::SubscriberExt;
@@ -32,8 +32,20 @@ async fn main() -> anyhow::Result<()> {
         log::info!("Initialized logging");
     }
 
-
-    let _ = get_mysql().await;
+    let db = get_mysql().await;
+// let r = sqlx::query!(r#"
+// SELECT
+//     user_id,
+//     NULLIF(admin[0], admin[1]) AS admin,
+// FROM (SELECT * FROM unnest(
+//     $1::bigint[],
+//     $2::bool[][]
+//   ) AS t(
+//     user_id,
+//     admin
+// ))
+// "#, &[1, 2, 3], &[[false, true], [false, false], [true, false]]).fetch_all(db).await;
+//     log::info!("r: {:?}", r);
 
     ::rocket::build()
         .mount("/", ::rocket::routes![
@@ -60,6 +72,9 @@ async fn main() -> anyhow::Result<()> {
             rocket::admin_domain_subdomains_get,
             rocket::admin_domain_subdomains_put,
             rocket::admin_domain_subdomains_delete,
+            //Permissions
+            rocket::admin_domain_permissions_get,
+            rocket::admin_domain_permissions_put,
 
             rocket::post_refresh_session,
             rocket::admin_get_change_pw,

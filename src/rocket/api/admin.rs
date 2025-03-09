@@ -10,5 +10,6 @@ pub use domain::{
     admin_domain_subdomains_delete,
     admin_domain_name_put,
     admin_domain__accepts_email__put,
+    admin_domain_permissions_put,
     admin_domain_owner_put
 };

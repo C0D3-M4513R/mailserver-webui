@@ -97,7 +97,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
 {delete}
     <table>
         <tr>
-            <th></th>
+            <th>Selected</th>
             <th>Email</th>
             <th>Actions</th>
         </tr>

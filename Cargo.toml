@@ -8,7 +8,7 @@ edition = "2021"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
 
 [dependencies]
-dotenv = "0.15.0"
+dotenvy = "0.15.7"
 const_format = "0.2.34"#compile-time string formatting
 anyhow = "1.0.97"#error handling
 thiserror = "2.0.12"

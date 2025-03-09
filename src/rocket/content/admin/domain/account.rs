@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_error};
+use crate::rocket::content::admin::domain::permissions::format_value;
 use crate::rocket::messages::{CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, LIST_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
@@ -101,27 +102,7 @@ WHERE users.id = $1
     let list_permissions = if permissions.get_admin() || permissions.get_list_permissions() {
         let p_admin = permissions.get_admin();
         let p_manage_perm = permissions.get_manage_permissions();
-        fn format_value(display: &str, name: &str, value: Option<bool>, enabled: bool) -> String {
-            let v_value = match value {
-                Some(true) => "true",
-                Some(false) => "false",
-                None => "null",
-            };
-            let extra_disabled = if enabled { String::new() } else { format!(r#"<input type="hidden" name="{name}" value="{v_value}"/>"#) };
-            let enabled = if enabled { "" } else { "disabled" };
-            const SELECTED:&str = r#"selected="selected""#;
-            let (v_true, v_false, v_null) = match value {
-                Some(true) => (SELECTED, "", ""),
-                Some(false) => ("", SELECTED, ""),
-                None => ("", "", SELECTED),
-            };
-            format!(r#"{extra_disabled}<label>{display}<select name="{name}" {enabled} >
-    <option value="true" {v_true}>True</option>
-    <option value="false" {v_false}>False</option>
-    <option value="null" {v_null}>Inherited</option>
-</select></label>
-            "#)
-        }
+
         let admin = format_value(               "Admin: ",                  "admin",                account.admin,               p_manage_perm && (p_admin || permissions.get_admin()));
         let view_domain = format_value(         "View Domain: ",            "view_domain",          account.view_domain,         p_manage_perm && (p_admin || permissions.get_view_domain()));
         let list_subdomain = format_value(      "List Subdomain: ",         "list_subdomain",       account.list_subdomain,      p_manage_perm && (p_admin || permissions.get_list_subdomain()));

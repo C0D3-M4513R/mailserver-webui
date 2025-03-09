@@ -1,10 +1,12 @@
 pub mod accounts;
 pub mod account;
 pub mod subdomains;
+pub mod permissions;
 
 pub use account::admin_domain_account_get;
 pub use accounts::admin_domain_accounts_get;
 pub use subdomains::admin_domain_subdomains_get;
+pub use permissions::admin_domain_permissions_get;
 
 use crate::rocket::session::HEADER;
 use std::borrow::Cow;

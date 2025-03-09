@@ -19,6 +19,7 @@ pub use api::{
     admin_put_change_pw,
     admin_domain_name_put,
     admin_domain__accepts_email__put,
+    admin_domain_permissions_put,
     admin_domain_owner_put,
 };
 pub use content::{
@@ -26,6 +27,7 @@ pub use content::{
     admin_get_change_pw,
     admin_domain_accounts_get, admin_domain_account_get,
     admin_domain_subdomains_get,
+    admin_domain_permissions_get,
     admin_domain_get,
     admin_get,
 };
