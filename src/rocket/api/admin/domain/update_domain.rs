@@ -51,7 +51,7 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
     }
 
     let db = crate::get_mysql().await;
-    match sqlx::query!("UPDATE domains SET name = $1 WHERE id = $2", data.name, permission.get_domain_id()).execute(db).await {
+    match sqlx::query!("UPDATE domains SET name = $1 WHERE id = $2 AND domains.id != domains.super", data.name, permission.get_domain_id()).execute(db).await {
         Ok(_) => {},
         Err(err) => {
             log::error!("Error creating subdomain: {err}");
