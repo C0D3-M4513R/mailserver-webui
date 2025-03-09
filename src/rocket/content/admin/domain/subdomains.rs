@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_error};
-use crate::rocket::messages::DATABASE_ERROR;
+use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 
@@ -11,15 +11,18 @@ pub async fn admin_domain_subdomains_get(session: Option<Session>, domain: &str)
 
 pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<Session>, domain: &str, error: Option<&str>) -> Return {
     let session = match session {
-        None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
-        Some(v) => v,
-    };
-    let unauth_error = unauth_error(domain);
-    let permissions = match session.get_permissions().get(domain) {
         None => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
             content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(unauth_error),
+            content: Cow::Owned(unauth_error(domain)),
         })),
+        Some(v) => v,
+    };
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, LIST_SUBDOMAIN_NO_PERM)),
+    }));
+    let permissions = match session.get_permissions().get(domain) {
+        None => return no_perm,
         Some(v) => v,
     };
 
@@ -28,10 +31,7 @@ pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<
         !permissions.get_view_domain() ||
             !permissions.get_list_subdomain()
         {
-            return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(unauth_error),
-            }));
+            return no_perm;
         }
     }
 

@@ -4,12 +4,14 @@ pub const GET_PERMISSION_ERROR:&str = r#"There was an Error, whilst fetching you
 pub const SELF_CHANGE_PASSWORD_NO_PERM:&str = r#"You don't have the permission to change your password."#;
 pub const SELF_CHANGE_PASSWORD_ERROR:&str = r#"There was an error whilst trying to change your password."#;
 
+pub const LIST_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to list accounts."#;
 pub const CREATE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to create this accounts."#;
 pub const DELETE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to delete this account."#;
 pub const MODIFY_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to modify accounts."#;
 
 pub const VIEW_DOMAIN_NO_PERM:&str = r#"You don't have the permission to view this domain."#;
 
+pub const LIST_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to list subdomains."#;
 pub const CREATE_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to create subdomains."#;
 pub const DELETE_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to delete subdomains."#;
 pub const MODIFY_DOMAIN_NO_PERM:&str = r#"You don't have the permission to modify this domain."#;
