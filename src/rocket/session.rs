@@ -69,18 +69,18 @@ impl Permission {
     #[inline] pub const fn get_domain_accepts_email(&self) -> bool { self.domain_accepts_email }
     #[inline] pub const fn get_admin(&self) -> bool { self.get_is_owner() || self.admin }
     #[inline] pub const fn get_view_domain(&self) -> bool { self.get_is_owner() || self.view_domain }
-    #[inline] pub const fn get_modify_domain(&self) -> bool { self.get_is_owner() || self.modify_domain }
+    #[inline] pub const fn get_modify_domain(&self) -> bool { self.get_is_owner() || (self.view_domain && self.modify_domain) }
     #[inline] pub const fn get_list_subdomain(&self) -> bool { self.get_is_owner() || self.list_subdomain }
-    #[inline] pub const fn get_create_subdomain(&self) -> bool { self.get_is_owner() || self.create_subdomain }
-    #[inline] pub const fn get_delete_subdomain(&self) -> bool { self.get_is_owner() || self.delete_subdomain }
+    #[inline] pub const fn get_create_subdomain(&self) -> bool { self.get_is_owner() || (self.view_domain && self.list_subdomain && self.create_subdomain) }
+    #[inline] pub const fn get_delete_subdomain(&self) -> bool { self.get_is_owner() || (self.view_domain && self.list_subdomain && self.delete_subdomain) }
     #[inline] pub const fn get_list_accounts(&self) -> bool { self.get_is_owner() || self.list_accounts }
-    #[inline] pub const fn get_create_accounts(&self) -> bool { self.get_is_owner() || self.create_accounts }
-    #[inline] pub const fn get_modify_accounts(&self) -> bool { self.get_is_owner() || self.modify_accounts }
-    #[inline] pub const fn get_delete_accounts(&self) -> bool { self.get_is_owner() || self.delete_accounts }
+    #[inline] pub const fn get_create_accounts(&self) -> bool { self.get_is_owner() || (self.view_domain && self.list_accounts && self.create_accounts) }
+    #[inline] pub const fn get_modify_accounts(&self) -> bool { self.get_is_owner() || (self.view_domain && self.list_accounts && self.modify_accounts) }
+    #[inline] pub const fn get_delete_accounts(&self) -> bool { self.get_is_owner() || (self.view_domain && self.list_accounts && self.delete_accounts) }
     #[inline] pub const fn get_create_alias(&self) -> bool { self.get_is_owner() || self.create_alias }
     #[inline] pub const fn get_modify_alias(&self) -> bool { self.get_is_owner() || self.modify_alias }
     #[inline] pub const fn get_list_permissions(&self) -> bool { self.get_is_owner() || self.list_permissions }
-    #[inline] pub const fn get_manage_permissions(&self) -> bool { self.get_is_owner() || self.manage_permissions }
+    #[inline] pub const fn get_manage_permissions(&self) -> bool { self.get_is_owner() || (self.view_domain && self.list_permissions && self.manage_permissions) }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
