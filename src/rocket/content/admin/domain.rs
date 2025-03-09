@@ -97,15 +97,27 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
 
     let manage_domain = if permissions.get_admin() || permissions.get_modify_domain() {
         format!(r#"
-    <h2>Rename Domain:</h2>
     <form method="POST" action="{domain}/name">
         <input type="hidden" name="_method" value="PUT" />
-        <input type="text" name="name" value="{domain}"/>
+        <label>New Name:<input type="text" name="name" value="{domain}"/></label>
         <input type="submit" value="Rename Domain"/>
     </form>
     "#)
     } else {
         String::new()
+    };
+
+    let manage_domain = {
+        let domain_accepts_email = if permissions.get_domain_accepts_email() { "checked" } else {""};
+        let view_only = if !permissions.get_admin() && !permissions.get_modify_domain() { "disabled" } else {""};
+        format!(r#"
+<form method="POST" action="{domain}/accepts_email">
+    <input type="hidden" name="_method" value="PUT" />
+    <label>Accepts Email: <input type="checkbox" name="accepts_email" {domain_accepts_email} {view_only}/></label>
+    <input type="submit" value="Update Accepts Email" {view_only}/>
+</form>
+{manage_domain}
+"#)
     };
     let owner = if permissions.get_is_owner() {
         let db = crate::get_mysql().await;
@@ -171,6 +183,7 @@ WHERE users.deleted = false AND users.domain_id = domains.id
     {HEADER}
     <p>Welcome to the admin page</p>
     {header}
+    <h2>Manage Domain:</h2>
     {manage_domain}
     {owner}
 </body>

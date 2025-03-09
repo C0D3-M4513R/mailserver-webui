@@ -18,6 +18,7 @@ pub use api::{
     post_refresh_session,
     admin_put_change_pw,
     admin_domain_name_put,
+    admin_domain__accepts_email__put,
     admin_domain_owner_put,
 };
 pub use content::{
