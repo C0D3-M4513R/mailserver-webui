@@ -8,6 +8,7 @@ pub struct Permission {
     domain_id: i64,
     is_owner: bool,
     domain_accepts_email: bool,
+    domain_level: i64,
     admin: bool,
     view_domain: bool,
     modify_domain: bool,
@@ -29,6 +30,7 @@ impl Permission {
         domain_id: i64,
         is_owner: bool,
         domain_accepts_email: bool,
+        domain_level: i64,
         admin: bool,
         view_domain: bool,
         modify_domain: bool,
@@ -48,6 +50,7 @@ impl Permission {
             domain_id,
             is_owner,
             domain_accepts_email,
+            domain_level,
             admin,
             view_domain,
             modify_domain,
@@ -67,6 +70,7 @@ impl Permission {
     #[inline] pub const fn get_domain_id(&self) -> i64 { self.domain_id }
     #[inline] pub const fn get_is_owner(&self) -> bool { self.is_owner }
     #[inline] pub const fn get_domain_accepts_email(&self) -> bool { self.domain_accepts_email }
+    #[inline] pub const fn get_domain_level(&self) -> i64 { self.domain_level }
     #[inline] pub const fn get_admin(&self) -> bool { self.get_is_owner() || self.admin }
     #[inline] pub const fn get_view_domain(&self) -> bool { self.get_is_owner() || self.view_domain }
     #[inline] pub const fn get_modify_domain(&self) -> bool { self.get_is_owner() || (self.view_domain && self.modify_domain) }
@@ -96,9 +100,10 @@ impl Session{
         let db = crate::get_mysql().await;
         let permissions = sqlx::query!(r#"
 SELECT
-        perm.domain_name as "domain!",
+        domains.name as "domain!",
         perm.domain_id as "domain_id!",
         domains.accepts_email as "domain_accepts_email!",
+        domains.level as "domain_level!",
         perm.admin as "admin!",
         perm.view_domain as "view_domain!",
         perm.modify_domain as "modify_domain!",
@@ -115,7 +120,7 @@ SELECT
         perm.manage_permissions as "manage_permissions!",
         (domains.domain_owner = perm.user_id) as "is_owner!"
 FROM flattened_web_domain_permissions perm
-JOIN domains ON domains.id = perm.domain_id
+JOIN virtual_domains domains ON domains.id = perm.domain_id
         WHERE perm.user_id = $1"#, user_id)
             .fetch_all(db)
             .await;
@@ -126,6 +131,7 @@ JOIN domains ON domains.id = perm.domain_id
                 v.domain_id,
                 v.is_owner,
                 v.domain_accepts_email,
+                v.domain_level,
                 v.admin,
                 v.view_domain,
                 v.modify_domain,
