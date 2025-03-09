@@ -9,6 +9,7 @@ pub use subdomains::admin_domain_subdomains_get;
 use crate::rocket::session::HEADER;
 use std::borrow::Cow;
 use std::fmt::Display;
+use crate::rocket::messages::{VIEW_DOMAIN_NO_PERM};
 use super::super::{Session, Return, TypedContent};
 
 pub(in crate::rocket) fn template(domain: &str, content: impl Display) -> String {
@@ -90,10 +91,72 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
     if !permissions.get_admin() && !permissions.get_view_domain() {
         return Return::Content((rocket::http::Status::Forbidden, TypedContent{
             content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(unauth_error),
+            content: Cow::Owned(template(domain, VIEW_DOMAIN_NO_PERM)),
         }));
     }
 
+    let manage_domain = if permissions.get_admin() || permissions.get_modify_domain() {
+        format!(r#"
+    <h2>Rename Domain:</h2>
+    <form method="POST" action="{domain}/name">
+        <input type="hidden" name="_method" value="PUT" />
+        <input type="text" name="name" value="{domain}"/>
+        <input type="submit" value="Rename Domain"/>
+    </form>
+    "#)
+    } else {
+        String::new()
+    };
+    let owner = if permissions.get_is_owner() {
+        let db = crate::get_mysql().await;
+        let accounts = match sqlx::query!(r#"
+SELECT
+    users.id AS "id!",
+    users.email AS "email!",
+    domains.name AS "domain!"
+FROM users
+JOIN domains ON domains.domain_owner = $1
+WHERE users.deleted = false AND users.domain_id = domains.id
+"#, session.get_user_id())
+            .fetch_all(db)
+            .await
+        {
+            Err(err) => {
+                log::debug!("Error fetching accounts: {err}");
+                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                    content_type: rocket::http::ContentType::HTML,
+                    content: Cow::Owned(template(domain, VIEW_DOMAIN_NO_PERM)),
+                }));
+            },
+            Ok(v) => {
+                v.into_iter().map(|v|{
+                    let id = v.id;
+                    let domain = v.domain;
+                    let selected = if id == session.get_user_id() {
+                        r#"selected="selected""#
+                    } else {""};
+                    let email = v.email;
+                    format!(r#"<option value="{id}" {selected}>{email}@{domain}</option>"#)
+                })
+                    .fold(String::new(), |mut a, b|{a.push_str(&b); a})
+            }
+        };
+        if !accounts.is_empty() {
+            format!(r#"
+<h2>Change Owner:</h2>
+    <form action="{domain}/owner">
+    <select name="owner">
+        {accounts}
+    </select>
+    <input type="submit" value="Change Owner"/>
+    </form>
+            "#)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
     let header = domain_linklist(&session, domain);
     Return::Content((rocket::http::Status::Ok, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -108,13 +171,8 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
     {HEADER}
     <p>Welcome to the admin page</p>
     {header}
-    <h2>Rename Domain:</h2>
-    <form method="POST" action="{domain}/name">
-        <input type="hidden" name="_method" value="PUT" />
-        <input type="text" name="name" value={domain}"/>
-        <input type="submit" value="Rename Domain"/>
-    </form>
-    <p>Content could be here.</p>
+    {manage_domain}
+    {owner}
 </body>
 </html>
         "#)),
