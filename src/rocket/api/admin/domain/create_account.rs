@@ -44,7 +44,7 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_create_accounts() {
+    if !permission.admin() && !permission.create_accounts() {
         return no_perm;
     }
 
@@ -57,7 +57,7 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         }
     };
 
-    let id = match sqlx::query!("INSERT INTO users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id", permission.get_domain_id(), data.email).fetch_one(db).await {
+    let id = match sqlx::query!("INSERT INTO users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id", permission.domain_id(), data.email).fetch_one(db).await {
         Ok(v) => v.id,
         Err(err) => {
             log::error!("Error creating account: {err}");

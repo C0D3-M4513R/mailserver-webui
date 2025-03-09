@@ -27,10 +27,10 @@ pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<
         Some(v) => v,
     };
 
-    if !permissions.get_admin() {
+    if !permissions.admin() {
         if
-        !permissions.get_view_domain() ||
-            !permissions.get_list_subdomain()
+        !permissions.view_domain() ||
+            !permissions.list_subdomain()
         {
             return no_perm;
         }
@@ -45,7 +45,7 @@ FROM virtual_domains domains
 JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id
 WHERE
     (permissions.view_domain OR permissions.admin) AND
-    domains.super = $1 AND permissions.user_id = $2"#, permissions.get_domain_id(), session.get_user_id())
+    domains.super = $1 AND permissions.user_id = $2"#, permissions.domain_id(), session.get_user_id())
         .fetch_all(db)
         .await
     {
@@ -65,7 +65,7 @@ WHERE
         }
     };
 
-    let new_subdomain = if permissions.get_admin() || permissions.get_create_subdomain() {
+    let new_subdomain = if permissions.admin() || permissions.create_subdomain() {
         let domain = if domain == SPECIAL_ROOT_DOMAIN_NAME { String::new() } else { format!(".{domain}") };
         format!(r#"<h2>Create new Subdomain:</h2>
 <form method="POST">

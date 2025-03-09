@@ -15,10 +15,10 @@ pub async fn admin_get(session: Option<Session>) -> Return {
     let mut domain_list = String::new();
     let mut permissions = session.get_permissions().iter().collect::<Vec<_>>();
     permissions.sort_by(|(k1, p1), (k2, p2)| {
-        (p1.get_domain_level(), k1).cmp(&(p2.get_domain_level(), k2))
+        (p1.domain_level(), k1).cmp(&(p2.domain_level(), k2))
     });
     for (domain, permissions) in permissions {
-        if !permissions.get_admin() && !permissions.get_view_domain() {
+        if !permissions.admin() && !permissions.view_domain() {
             continue;
         }
         domain_list.push_str(&format!(r#"<li><a href="/admin/{domain}/view">{domain}</a></li>"#));

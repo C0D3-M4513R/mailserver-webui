@@ -55,7 +55,7 @@ pub async fn admin_domain_account_email_put(
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_create_accounts() {
+    if !permission.admin() && !permission.create_accounts() {
         return no_perm;
     }
 
@@ -108,7 +108,7 @@ pub async fn admin_domain_account_password_put(
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_modify_accounts() {
+    if !permission.admin() && !permission.modify_accounts() {
         return no_perm;
     }
 
@@ -184,11 +184,11 @@ pub async fn admin_domain_account_permissions_put(
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_manage_permissions() {
+    if !permission.admin() && !permission.manage_permissions() {
         return no_perm;
     }
 
-    match data.into_inner().into_update_perms(user_id).apply_perms(session.get_user_id(), permission.get_domain_id()).await {
+    match data.into_inner().into_update_perms(user_id).apply_perms(session.get_user_id(), permission.domain_id()).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error applying account permissions: {err}");

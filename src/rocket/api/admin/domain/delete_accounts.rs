@@ -60,7 +60,7 @@ pub async fn admin_domain_accounts_delete(
         None => return no_perm,
         Some(v) => v,
     };
-    if !permissions.get_admin() && !permissions.get_delete_accounts(){
+    if !permissions.admin() && !permissions.delete_accounts(){
         return no_perm;
     }
 
@@ -71,7 +71,7 @@ pub async fn admin_domain_accounts_delete(
 
     let db = crate::get_mysql().await;
     let accounts = data.into_inner().accounts.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
-    let domain_id = permissions.get_domain_id();
+    let domain_id = permissions.domain_id();
     match sqlx::query!(
         r#"
         DELETE FROM virtual_users users

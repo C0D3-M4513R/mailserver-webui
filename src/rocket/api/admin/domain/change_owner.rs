@@ -42,7 +42,7 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_is_owner() {
+    if !permission.is_owner() {
         return no_perm;
     }
 
@@ -53,7 +53,7 @@ SET domain_owner = $1
 FROM users
 WHERE users.id = $1 AND users.deleted = false AND
     users.domain_id = $2 AND domains.id = $2
-    "#, data.owner, permission.get_domain_id()).execute(db).await {
+    "#, data.owner, permission.domain_id()).execute(db).await {
         Ok(v) => {
             if v.rows_affected() != 1 {
                 log::debug!("Tried to update domain owner, but no rows were changed?");

@@ -47,12 +47,12 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_modify_domain() {
+    if !permission.admin() && !permission.modify_domain() {
         return no_perm;
     }
 
     let db = crate::get_mysql().await;
-    match sqlx::query!("UPDATE domains SET name = $1 WHERE id = $2 AND domains.id != domains.super", data.name, permission.get_domain_id()).execute(db).await {
+    match sqlx::query!("UPDATE domains SET name = $1 WHERE id = $2 AND domains.id != domains.super", data.name, permission.domain_id()).execute(db).await {
         Ok(_) => {},
         Err(err) => {
             log::error!("Error creating subdomain: {err}");
@@ -93,12 +93,12 @@ pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: 
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_modify_domain() {
+    if !permission.admin() && !permission.modify_domain() {
         return no_perm;
     }
 
     let db = crate::get_mysql().await;
-    match sqlx::query!("UPDATE domains SET accepts_email = $1 WHERE deleted = false AND id = $2", data.accepts_email, permission.get_domain_id()).execute(db).await {
+    match sqlx::query!("UPDATE domains SET accepts_email = $1 WHERE deleted = false AND id = $2", data.accepts_email, permission.domain_id()).execute(db).await {
         Ok(_) => {},
         Err(err) => {
             log::error!("Error creating subdomain: {err}");
@@ -147,11 +147,11 @@ pub async fn admin_domain_permissions_put(
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_manage_permissions() {
+    if !permission.admin() && !permission.manage_permissions() {
         return no_perm;
     }
 
-    match data.apply_perms(session.get_user_id(), permission.get_domain_id()).await {
+    match data.apply_perms(session.get_user_id(), permission.domain_id()).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error applying account permissions: {err}");
@@ -161,7 +161,7 @@ pub async fn admin_domain_permissions_put(
         }
     };
 
-    if data.users.contains_key(&session.get_user_id()) && !permission.get_is_owner() {
+    if data.users.contains_key(&session.get_user_id()) && !permission.is_owner() {
         match session.refresh_permissions(cookie_jar).await {
             Ok(()) => {},
             Err(err) => {

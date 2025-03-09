@@ -37,9 +37,9 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
     let list_subdomain;
     match session.get_permissions().get(domain) {
         Some(v) => {
-            list_permissions = v.get_admin() || v.get_list_permissions();
-            list_accounts = v.get_admin() || v.get_list_accounts();
-            list_subdomain = v.get_admin() || v.get_list_subdomain();
+            list_permissions = v.admin() || v.list_permissions();
+            list_accounts = v.admin() || v.list_accounts();
+            list_subdomain = v.admin() || v.list_subdomain();
         }
         None => {
             list_permissions = false;
@@ -90,14 +90,14 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
         Some(v) => v,
     };
 
-    if !permissions.get_admin() && !permissions.get_view_domain() {
+    if !permissions.admin() && !permissions.view_domain() {
         return Return::Content((rocket::http::Status::Forbidden, TypedContent{
             content_type: rocket::http::ContentType::HTML,
             content: Cow::Owned(template(domain, VIEW_DOMAIN_NO_PERM)),
         }));
     }
 
-    let manage_domain = if permissions.get_admin() || permissions.get_modify_domain() {
+    let manage_domain = if permissions.admin() || permissions.modify_domain() {
         format!(r#"
     <form method="POST" action="./name">
         <input type="hidden" name="_method" value="PUT" />
@@ -110,8 +110,8 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
     };
 
     let manage_domain = {
-        let domain_accepts_email = if permissions.get_domain_accepts_email() { "checked" } else {""};
-        let view_only = if !permissions.get_admin() && !permissions.get_modify_domain() { "disabled" } else {""};
+        let domain_accepts_email = if permissions.domain_accepts_email() { "checked" } else {""};
+        let view_only = if !permissions.admin() && !permissions.modify_domain() { "disabled" } else {""};
         format!(r#"
 <form method="POST" action="./accepts_email">
     <input type="hidden" name="_method" value="PUT" />
@@ -121,7 +121,7 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
 {manage_domain}
 "#)
     };
-    let owner = if permissions.get_is_owner() {
+    let owner = if permissions.is_owner() {
         let db = crate::get_mysql().await;
         let accounts = match sqlx::query!(r#"
 SELECT

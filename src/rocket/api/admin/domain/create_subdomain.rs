@@ -42,12 +42,12 @@ pub async fn admin_domain_subdomains_put(session: Option<Session>, domain: &'_ s
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.get_admin() && !permission.get_create_subdomain() {
+    if !permission.admin() && !permission.create_subdomain() {
         return no_perm;
     }
 
     let db = crate::get_mysql().await;
-    match sqlx::query!("INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, $3)", data.name, permission.get_domain_id(), session.get_user_id()).execute(db).await {
+    match sqlx::query!("INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, $3)", data.name, permission.domain_id(), session.get_user_id()).execute(db).await {
         Ok(_) => {},
         Err(err) => {
             log::error!("Error creating subdomain: {err}");

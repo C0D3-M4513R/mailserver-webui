@@ -26,10 +26,10 @@ pub(in crate::rocket) async fn admin_domain_accounts_get_impl(session: Option<Se
         Some(v) => v,
     };
 
-    if !permissions.get_admin() {
+    if !permissions.admin() {
         if
-            !permissions.get_view_domain() ||
-            !permissions.get_list_accounts()
+            !permissions.view_domain() ||
+            !permissions.list_accounts()
         {
             return no_perm;
         }
@@ -41,7 +41,7 @@ SELECT
     users.id AS "id!",
     users.email AS "email!"
 FROM virtual_users users
-WHERE users.domain_id = $1"#, permissions.get_domain_id())
+WHERE users.domain_id = $1"#, permissions.domain_id())
         .fetch_all(db)
         .await
     {
@@ -49,7 +49,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
             let id = v.id;
             let email = v.email;
             let full_email = format!("{email}@{domain}");
-            let modify = if permissions.get_admin() || permissions.get_modify_accounts() {
+            let modify = if permissions.admin() || permissions.modify_accounts() {
                 format!(r#"<a href="/admin/{domain}/accounts/{id}">Modify</a>"#)
             } else {
                 String::new()
@@ -67,7 +67,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
         }
     };
 
-    let new_account = if permissions.get_admin() || permissions.get_create_accounts() {
+    let new_account = if permissions.admin() || permissions.create_accounts() {
         format!(r#"<h2>Create new Account:</h2>
 <form method="POST">
     <input type="hidden" name="_method" value="PUT" />
@@ -79,7 +79,7 @@ WHERE users.domain_id = $1"#, permissions.get_domain_id())
         String::new()
     };
 
-    let delete = if permissions.get_admin() || permissions.get_delete_accounts(){
+    let delete = if permissions.admin() || permissions.delete_accounts(){
         r#"<input type="hidden" name="_method" value="DELETE" /><input type="submit" value="Delete Selected Accounts" />"#
     } else {
         ""

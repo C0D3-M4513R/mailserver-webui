@@ -48,7 +48,7 @@ pub async fn admin_domain_subdomains_delete(
         None => return no_perm,
         Some(v) => v,
     };
-    if !permissions.get_admin() && !permissions.get_delete_subdomain(){
+    if !permissions.admin() && !permissions.delete_subdomain(){
         return no_perm;
     }
 
