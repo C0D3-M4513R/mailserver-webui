@@ -7,6 +7,7 @@ use rocket::request::Outcome;
 pub struct Permission {
     domain_id: i64,
     is_owner: bool,
+    domain_accepts_email: bool,
     admin: bool,
     view_domain: bool,
     modify_domain: bool,
@@ -27,6 +28,7 @@ impl Permission {
     pub fn new(
         domain_id: i64,
         is_owner: bool,
+        domain_accepts_email: bool,
         admin: bool,
         view_domain: bool,
         modify_domain: bool,
@@ -45,6 +47,7 @@ impl Permission {
         Self {
             domain_id,
             is_owner,
+            domain_accepts_email,
             admin,
             view_domain,
             modify_domain,
@@ -63,6 +66,7 @@ impl Permission {
     }
     #[inline] pub const fn get_domain_id(&self) -> i64 { self.domain_id }
     #[inline] pub const fn get_is_owner(&self) -> bool { self.is_owner }
+    #[inline] pub const fn get_domain_accepts_email(&self) -> bool { self.domain_accepts_email }
     #[inline] pub const fn get_admin(&self) -> bool { self.get_is_owner() || self.admin }
     #[inline] pub const fn get_view_domain(&self) -> bool { self.get_is_owner() || self.view_domain }
     #[inline] pub const fn get_modify_domain(&self) -> bool { self.get_is_owner() || self.modify_domain }
@@ -94,6 +98,7 @@ impl Session{
 SELECT
         perm.domain_name as "domain!",
         perm.domain_id as "domain_id!",
+        domains.accepts_email as "domain_accepts_email!",
         perm.admin as "admin!",
         perm.view_domain as "view_domain!",
         perm.modify_domain as "modify_domain!",
@@ -120,6 +125,7 @@ JOIN domains ON domains.id = perm.domain_id
             (v.domain, super::session::Permission::new(
                 v.domain_id,
                 v.is_owner,
+                v.domain_accepts_email,
                 v.admin,
                 v.view_domain,
                 v.modify_domain,
