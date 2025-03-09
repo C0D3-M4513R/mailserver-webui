@@ -232,21 +232,22 @@ MERGE INTO web_domain_permissions AS perm
         SELECT
             $1::bigint AS domain_id,
             $2::bigint AS target_user_id,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.admin)              THEN $4::bool  ELSE target.admin                 END AS admin,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.view_domain)        THEN $5::bool  ELSE target.view_domain           END AS view_domain,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.list_subdomain)     THEN $6::bool  ELSE target.list_subdomain        END AS list_subdomain,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.create_subdomain)   THEN $7::bool  ELSE target.create_subdomain      END AS create_subdomain,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.delete_subdomain)   THEN $8::bool  ELSE target.delete_subdomain      END AS delete_subdomain,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.list_accounts)      THEN $9::bool  ELSE target.list_accounts         END AS list_accounts,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.create_accounts)    THEN $10::bool ELSE target.create_accounts       END AS create_accounts,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.modify_accounts)    THEN $11::bool ELSE target.modify_accounts       END AS modify_accounts,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.delete_accounts)    THEN $12::bool ELSE target.delete_accounts       END AS delete_accounts,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.create_alias)       THEN $13::bool ELSE target.create_alias          END AS create_alias,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.modify_alias)       THEN $14::bool ELSE target.modify_alias          END AS modify_alias,
-            CASE WHEN slf.manage_permissions AND (slf.admin OR slf.list_permissions)   THEN $15::bool ELSE target.list_permissions      END AS list_permissions,
-            CASE WHEN slf.admin AND slf.manage_permissions                             THEN $16::bool ELSE target.manage_permissions    END AS manage_permissions
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.admin))               THEN $4::bool  ELSE target.admin                 END AS admin,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.view_domain))         THEN $5::bool  ELSE target.view_domain           END AS view_domain,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.list_subdomain))      THEN $6::bool  ELSE target.list_subdomain        END AS list_subdomain,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.create_subdomain))    THEN $7::bool  ELSE target.create_subdomain      END AS create_subdomain,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.delete_subdomain))    THEN $8::bool  ELSE target.delete_subdomain      END AS delete_subdomain,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.list_accounts))       THEN $9::bool  ELSE target.list_accounts         END AS list_accounts,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.create_accounts))     THEN $10::bool ELSE target.create_accounts       END AS create_accounts,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.modify_accounts))     THEN $11::bool ELSE target.modify_accounts       END AS modify_accounts,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.delete_accounts))     THEN $12::bool ELSE target.delete_accounts       END AS delete_accounts,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.create_alias))        THEN $13::bool ELSE target.create_alias          END AS create_alias,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.modify_alias))        THEN $14::bool ELSE target.modify_alias          END AS modify_alias,
+            CASE WHEN domains.domain_owner = $3 OR (slf.manage_permissions AND (slf.admin OR slf.list_permissions))    THEN $15::bool ELSE target.list_permissions      END AS list_permissions,
+            CASE WHEN domains.domain_owner = $3 OR (slf.admin AND slf.manage_permissions)                              THEN $16::bool ELSE target.manage_permissions    END AS manage_permissions
         FROM web_domain_permissions target
             JOIN flattened_web_domain_permissions slf ON slf.domain_id = target.domain_id AND slf.user_id = $3
+            LEFT JOIN domains ON domains.id = target.domain_id
         WHERE target.domain_id = $1 AND target.user_id = $2
    ) AS row ON perm.domain_id = row.domain_id AND perm.user_id = row.target_user_id
 WHEN MATCHED THEN

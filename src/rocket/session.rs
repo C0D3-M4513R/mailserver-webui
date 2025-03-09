@@ -6,6 +6,7 @@ use rocket::request::Outcome;
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
 pub struct Permission {
     domain_id: i64,
+    is_owner: bool,
     admin: bool,
     view_domain: bool,
     modify_domain: bool,
@@ -25,6 +26,7 @@ pub struct Permission {
 impl Permission {
     pub fn new(
         domain_id: i64,
+        is_owner: bool,
         admin: bool,
         view_domain: bool,
         modify_domain: bool,
@@ -42,6 +44,7 @@ impl Permission {
     ) -> Self {
         Self {
             domain_id,
+            is_owner,
             admin,
             view_domain,
             modify_domain,
@@ -59,20 +62,21 @@ impl Permission {
         }
     }
     #[inline] pub const fn get_domain_id(&self) -> i64 { self.domain_id }
-    #[inline] pub const fn get_admin(&self) -> bool { self.admin }
-    #[inline] pub const fn get_view_domain(&self) -> bool { self.view_domain }
-    #[inline] pub const fn get_modify_domain(&self) -> bool { self.modify_domain }
-    #[inline] pub const fn get_list_subdomain(&self) -> bool { self.list_subdomain }
-    #[inline] pub const fn get_create_subdomain(&self) -> bool { self.create_subdomain }
-    #[inline] pub const fn get_delete_subdomain(&self) -> bool { self.delete_subdomain }
-    #[inline] pub const fn get_list_accounts(&self) -> bool { self.list_accounts }
-    #[inline] pub const fn get_create_accounts(&self) -> bool { self.create_accounts }
-    #[inline] pub const fn get_modify_accounts(&self) -> bool { self.modify_accounts }
-    #[inline] pub const fn get_delete_accounts(&self) -> bool { self.delete_accounts }
-    #[inline] pub const fn get_create_alias(&self) -> bool { self.create_alias }
-    #[inline] pub const fn get_modify_alias(&self) -> bool { self.modify_alias }
-    #[inline] pub const fn get_list_permissions(&self) -> bool { self.list_permissions }
-    #[inline] pub const fn get_manage_permissions(&self) -> bool { self.manage_permissions }
+    #[inline] pub const fn get_is_owner(&self) -> bool { self.is_owner }
+    #[inline] pub const fn get_admin(&self) -> bool { self.get_is_owner() || self.admin }
+    #[inline] pub const fn get_view_domain(&self) -> bool { self.get_is_owner() || self.view_domain }
+    #[inline] pub const fn get_modify_domain(&self) -> bool { self.get_is_owner() || self.modify_domain }
+    #[inline] pub const fn get_list_subdomain(&self) -> bool { self.get_is_owner() || self.list_subdomain }
+    #[inline] pub const fn get_create_subdomain(&self) -> bool { self.get_is_owner() || self.create_subdomain }
+    #[inline] pub const fn get_delete_subdomain(&self) -> bool { self.get_is_owner() || self.delete_subdomain }
+    #[inline] pub const fn get_list_accounts(&self) -> bool { self.get_is_owner() || self.list_accounts }
+    #[inline] pub const fn get_create_accounts(&self) -> bool { self.get_is_owner() || self.create_accounts }
+    #[inline] pub const fn get_modify_accounts(&self) -> bool { self.get_is_owner() || self.modify_accounts }
+    #[inline] pub const fn get_delete_accounts(&self) -> bool { self.get_is_owner() || self.delete_accounts }
+    #[inline] pub const fn get_create_alias(&self) -> bool { self.get_is_owner() || self.create_alias }
+    #[inline] pub const fn get_modify_alias(&self) -> bool { self.get_is_owner() || self.modify_alias }
+    #[inline] pub const fn get_list_permissions(&self) -> bool { self.get_is_owner() || self.list_permissions }
+    #[inline] pub const fn get_manage_permissions(&self) -> bool { self.get_is_owner() || self.manage_permissions }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -103,8 +107,10 @@ SELECT
         perm.create_alias as "create_alias!",
         perm.modify_alias as "modify_alias!",
         perm.list_permissions as "list_permissions!",
-        perm.manage_permissions as "manage_permissions!"
+        perm.manage_permissions as "manage_permissions!",
+        (domains.domain_owner = perm.user_id) as "is_owner!"
 FROM flattened_web_domain_permissions perm
+JOIN domains ON domains.id = perm.domain_id
         WHERE perm.user_id = $1"#, user_id)
             .fetch_all(db)
             .await;
@@ -113,6 +119,7 @@ FROM flattened_web_domain_permissions perm
         let permissions = permissions.into_iter().map(|v|
             (v.domain, super::session::Permission::new(
                 v.domain_id,
+                v.is_owner,
                 v.admin,
                 v.view_domain,
                 v.modify_domain,
