@@ -97,7 +97,7 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
 
     let manage_domain = if permissions.get_admin() || permissions.get_modify_domain() {
         format!(r#"
-    <form method="POST" action="{domain}/name">
+    <form method="POST" action="./name">
         <input type="hidden" name="_method" value="PUT" />
         <label>New Name:<input type="text" name="name" value="{domain}"/></label>
         <input type="submit" value="Rename Domain"/>
@@ -111,7 +111,7 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
         let domain_accepts_email = if permissions.get_domain_accepts_email() { "checked" } else {""};
         let view_only = if !permissions.get_admin() && !permissions.get_modify_domain() { "disabled" } else {""};
         format!(r#"
-<form method="POST" action="{domain}/accepts_email">
+<form method="POST" action="./accepts_email">
     <input type="hidden" name="_method" value="PUT" />
     <label>Accepts Email: <input type="checkbox" name="accepts_email" {domain_accepts_email} {view_only}/></label>
     <input type="submit" value="Update Accepts Email" {view_only}/>
@@ -156,7 +156,7 @@ WHERE users.deleted = false AND users.domain_id = domains.id
         if !accounts.is_empty() {
             format!(r#"
 <h2>Change Owner:</h2>
-    <form action="{domain}/owner">
+    <form action="./owner">
     <select name="owner">
         {accounts}
     </select>
@@ -192,5 +192,5 @@ WHERE users.deleted = false AND users.domain_id = domains.id
     }))
 }
 pub(in crate::rocket) fn unauth_error(domain: &str) -> String {
-    template(domain, r#"<p>You are unable to access the Admin-Panel for the domain {domain}.</p>"#)
+    template(domain, format!(r#"<p>You are unable to access the Admin-Panel for the domain {domain}.</p>"#))
 }
