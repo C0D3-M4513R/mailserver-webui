@@ -41,7 +41,7 @@ pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<
 SELECT
     domains.id AS "id!",
     domains.name AS "name!"
-FROM virtual_flattened_domains domains
+FROM virtual_domains domains
 JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id
 WHERE
     (permissions.view_domain OR permissions.admin) AND
