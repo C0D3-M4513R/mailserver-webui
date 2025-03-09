@@ -1,5 +1,6 @@
 mod rocket;
 
+const SPECIAL_ROOT_DOMAIN_NAME:&str = "root";
 
 pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
     static MYSQL: tokio::sync::OnceCell<sqlx::postgres::PgPool> = tokio::sync::OnceCell::const_new();

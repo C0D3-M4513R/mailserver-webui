@@ -3,6 +3,7 @@ use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_er
 use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
+use crate::SPECIAL_ROOT_DOMAIN_NAME;
 
 #[rocket::get("/admin/<domain>/subdomains")]
 pub async fn admin_domain_subdomains_get(session: Option<Session>, domain: &str) -> Return {
@@ -65,10 +66,11 @@ WHERE
     };
 
     let new_subdomain = if permissions.get_admin() || permissions.get_create_subdomain() {
+        let domain = if domain == SPECIAL_ROOT_DOMAIN_NAME { String::new() } else { format!(".{domain}") };
         format!(r#"<h2>Create new Subdomain:</h2>
 <form method="POST">
     <input type="hidden" name="_method" value="PUT" />
-    <label>Name: <input type="text" name="email" /></label>
+    <label>Name: <a><input type="text" name="name" />{domain}</a></label>
     <input type="submit" value="Add Subdomain" />
 </form>"#)
     } else {
