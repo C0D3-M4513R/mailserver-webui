@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_error};
 use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::session::Session;
+use crate::rocket::auth::session::Session;
 use crate::SPECIAL_ROOT_DOMAIN_NAME;
 
 #[rocket::get("/admin/<domain>/subdomains")]

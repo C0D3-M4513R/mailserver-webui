@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use super::super::auth::check_password::{check_password, Error as CheckPasswordError};
 use crate::rocket::messages::{DATABASE_TRANSACTION_ERROR, INCORRECT_PASSWORD, SELF_CHANGE_PASSWORD_ERROR, SELF_CHANGE_PASSWORD_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::session::Session;
+use crate::rocket::auth::session::Session;
 use super::super::content::change_pw::{HEAD, FORM, TAIL};
 
 mod private {

@@ -4,7 +4,7 @@ use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
 use crate::rocket::messages::{CREATE_SUBDOMAIN_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::session::Session;
+use crate::rocket::auth::session::Session;
 
 mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]

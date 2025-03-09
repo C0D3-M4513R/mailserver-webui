@@ -1,4 +1,3 @@
-mod session;
 mod messages;
 mod auth;
 mod response;

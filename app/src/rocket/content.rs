@@ -1,5 +1,5 @@
 use super::response::{Return, TypedContent};
-use super::session::{Session, HEADER as SESSION_HEADER};
+use super::auth::session::{Session, HEADER as SESSION_HEADER};
 use super::auth::check_password::{check_password, Error as AuthError};
 pub mod index;
 pub mod admin;

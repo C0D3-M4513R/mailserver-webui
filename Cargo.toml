@@ -1,45 +1,6 @@
-[package]
-name = "mailserver-web"
-version = "0.1.0"
-edition = "2021"
-
-
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
-
-[dependencies]
-dotenvy = "0.15.7"
-const_format = "0.2.34"#compile-time string formatting
-anyhow = "1.0.97"#error handling
-thiserror = "2.0.12"
-
-#logging
-log = "0.4.26"
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-
-flate2 = "1.1.0" #compression
-base64 = "0.22.1"
-serde = { version = "1.0.130", features = ["derive"] } #serialization
-serde_json = "1.0.68" #json serialization
-
-#crypto stuff
-password-hash = "0.5.0"
-argon2 = "0.5.3"
-sha-crypt = { version = "0.5.0", optional = true }
-scrypt = "0.11.0"
-pbkdf2 = "0.12.2"
-bcrypt-pbkdf = "0.10.0"
-rand = "0.9.0"
-
-
-#generic tech-stack
-rocket = { version = "0.5.1", features = ["secrets", "json"] }
-tokio = "1.43.0"
-sqlx = { version = "0.8.3", features = ["postgres", "runtime-tokio-rustls"]}
-
-[features]
-sha-crypt = ["dep:sha-crypt"]
+[workspace]
+members = ["app", "macro"]
+resolver = "2"
 
 [profile.dev]
 opt-level = 2

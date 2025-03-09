@@ -8,7 +8,7 @@ pub use accounts::admin_domain_accounts_get;
 pub use subdomains::admin_domain_subdomains_get;
 pub use permissions::admin_domain_permissions_get;
 
-use crate::rocket::session::HEADER;
+use crate::rocket::auth::session::HEADER;
 use std::borrow::Cow;
 use std::fmt::Display;
 use crate::rocket::messages::{VIEW_DOMAIN_NO_PERM};

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::rocket::auth::session::Session;
 
 #[derive(Debug, Default, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
 pub struct Enabled<T> {
@@ -60,6 +61,69 @@ pub struct Permission {
     domain_level: i64,
     $($ident : bool,)*
 }
+impl Session{
+
+    #[inline]
+    pub async fn new(user_id: i64, self_change_password: bool) -> anyhow::Result<Self> {
+        let db = crate::get_mysql().await;
+        let permissions = sqlx::query!(r#"
+SELECT
+        domains.name as "domain!",
+        perm.domain_id as "domain_id!",
+        domains.accepts_email as "domain_accepts_email!",
+        domains.level as "domain_level!",
+        perm.admin as "admin!",
+        perm.view_domain as "view_domain!",
+        perm.modify_domain as "modify_domain!",
+        perm.list_subdomain as "list_subdomain!",
+        perm.create_subdomain as "create_subdomain!",
+        perm.delete_subdomain as "delete_subdomain!",
+        perm.list_accounts as "list_accounts!",
+        perm.create_accounts as "create_accounts!",
+        perm.delete_accounts as "delete_accounts!",
+        perm.modify_accounts as "modify_accounts!",
+        perm.create_alias as "create_alias!",
+        perm.modify_alias as "modify_alias!",
+        perm.list_permissions as "list_permissions!",
+        perm.manage_permissions as "manage_permissions!",
+        (domains.domain_owner = perm.user_id) as "is_owner!"
+FROM flattened_web_domain_permissions perm
+JOIN virtual_domains domains ON domains.id = perm.domain_id
+        WHERE perm.user_id = $1"#, user_id)
+            .fetch_all(db)
+            .await;
+        let permissions = permissions?;
+
+        let permissions = permissions.into_iter().map(|v|
+            (v.domain, Permission::new(
+                v.domain_id,
+                v.is_owner,
+                v.domain_accepts_email,
+                v.domain_level,
+                v.admin,
+                v.view_domain,
+                v.modify_domain,
+                v.list_subdomain,
+                v.create_subdomain,
+                v.delete_subdomain,
+                v.list_accounts,
+                v.create_accounts,
+                v.modify_accounts,
+                v.delete_accounts,
+                v.create_alias,
+                v.modify_alias,
+                v.list_permissions,
+                v.manage_permissions,
+            ))
+        ).collect::<std::collections::HashMap<_,_>>();
+
+        Ok(Self {
+            user_id,
+            self_change_password,
+            permissions,
+        })
+    }
+}
 impl Permission {
     pub const fn new(
         domain_id: i64,
@@ -101,7 +165,6 @@ impl OptPermission{
 pub struct UpdatePermissions{
     pub users: HashMap<i64, Enabled<OptPermission>>,
 }
-
 impl UpdatePermissions {
     pub async fn apply_perms(&self, self_user_id: i64, domain_id:i64) -> Result<u64, sqlx::Error> {
         if self.users.is_empty() {

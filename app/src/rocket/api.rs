@@ -1,4 +1,4 @@
-use super::session::Session;
+use super::auth::session::Session;
 
 pub mod error;
 pub mod change_pw;

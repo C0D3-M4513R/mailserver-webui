@@ -1,0 +1,11 @@
+[package]
+name = "mailserver_webui_macro"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.94"
+syn = { version = "2.0.99", features = ["full"] }
