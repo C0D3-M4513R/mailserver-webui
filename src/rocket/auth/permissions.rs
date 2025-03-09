@@ -10,9 +10,9 @@ macro_rules! get_perm {
         const NAME:&str = $para.to_string();
         match $para {
             Perm::ManagePermissions => {
-                const_format::formatcp!(r#"CASE WHEN domains.domain_owner = input.user_id OR (slf.admin AND slf.manage_permissions)                              THEN input.manage_permissions  ELSE target.manage_permissions    END AS manage_permissions"#)
+                const_format::formatcp!(r#"CASE WHEN domains.domain_owner = input.user_id OR (slf.admin AND slf.manage_permissions)                              THEN input.{NAME}  ELSE target.{NAME}    END AS {NAME}"#)
             },
-            v => {
+            _ => {
                 const_format::formatcp!(r#"CASE WHEN domains.domain_owner = input.user_id OR (slf.manage_permissions AND (slf.admin OR slf.{NAME}))               THEN input.{NAME}               ELSE target.{NAME}                 END AS {NAME}"#)
             }
         }

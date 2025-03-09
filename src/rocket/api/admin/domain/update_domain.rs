@@ -65,6 +65,7 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/view")))
 }
 #[rocket::put("/admin/<domain>/accepts_email", data = "<data>")]
+#[allow(non_snake_case)]
 pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: &'_ str, data: rocket::form::Form<private::AcceptsEmail>, cookie_jar: &'_ CookieJar<'_>) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,

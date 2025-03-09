@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_error};
 use crate::rocket::content::admin::domain::permissions::format_value;
-use crate::rocket::messages::{CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, LIST_ACCOUNT_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, LIST_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::session::Session;
 

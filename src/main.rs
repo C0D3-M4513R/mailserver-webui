@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
         log::info!("Initialized logging");
     }
 
-    let db = get_mysql().await;
+    let _ = get_mysql().await;
 // let r = sqlx::query!(r#"
 // SELECT
 //     user_id,
