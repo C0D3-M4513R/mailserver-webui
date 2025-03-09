@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
         .mount("/", ::rocket::routes![
             rocket::index_get,
             rocket::index_post,
-            rocket::logout_put,
+            rocket::logout_post,
 
             rocket::admin_get,
             rocket::admin_domain_get,

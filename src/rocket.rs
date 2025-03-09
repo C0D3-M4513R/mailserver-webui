@@ -14,7 +14,7 @@ pub use api::{
     admin_domain_accounts_put,
     admin_domain_subdomains_put,
     admin_domain_subdomains_delete,
-    logout_put,
+    logout_post,
     post_refresh_session,
     admin_put_change_pw,
     admin_domain_name_put,
