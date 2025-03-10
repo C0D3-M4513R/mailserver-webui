@@ -11,7 +11,7 @@ pub use permissions::admin_domain_permissions_get;
 use crate::rocket::auth::session::HEADER;
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::rocket::messages::{VIEW_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, VIEW_DOMAIN_NO_PERM};
 use super::super::{Session, Return, TypedContent};
 
 pub(in crate::rocket) fn template(domain: &str, content: impl Display) -> String {
@@ -97,11 +97,34 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
         }));
     }
 
+    let db = crate::get_mysql().await;
     let manage_domain = if permissions.admin() || permissions.modify_domain() {
+        let name = match sqlx::query!(r#"
+SELECT
+    domains.name AS "name!"
+    super_domains.name AS "super_domain!"
+FROM domains
+JOIN virtual_domains super_domains ON domains.super = super_domains.id
+WHERE domains.id = $1
+"#, permissions.domain_id())
+            .fetch_one(db)
+            .await
+        {
+            Err(err) => {
+                log::debug!("Error fetching domain: {err}");
+                return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                    content_type: rocket::http::ContentType::HTML,
+                    content: Cow::Owned(template(domain, DATABASE_ERROR)),
+                }));
+            },
+            Ok(v) => v
+        };
+        let name = name.name;
+        let super_domain = name.super_domain;
         format!(r#"
     <form method="POST" action="./name">
         <input type="hidden" name="_method" value="PUT" />
-        <label>New Name:<input type="text" name="name" value="{domain}"/></label>
+        <label>New Name:<a><input type="text" name="name" value="{name}"/>.{super_domain}</a></label>
         <input type="submit" value="Rename Domain"/>
     </form>
     "#)
@@ -122,7 +145,6 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
 "#)
     };
     let owner = if permissions.is_owner() {
-        let db = crate::get_mysql().await;
         let accounts = match sqlx::query!(r#"
 SELECT
     users.id AS "id!",

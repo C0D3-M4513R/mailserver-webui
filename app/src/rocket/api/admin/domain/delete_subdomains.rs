@@ -64,9 +64,9 @@ DELETE FROM virtual_domains domains WHERE domains.id = ANY($1)
         "#,
         &domains,
     ).execute(db).await {
-        Ok(_) => Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts"))),
+        Ok(_) => Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/subdomains"))),
         Err(err) => {
-            log::error!("Error deleting accounts: {err}");
+            log::error!("Error deleting subdomain: {err}");
             db_error
         }
     }

@@ -4,7 +4,7 @@ use crate::rocket::auth::permissions::UpdatePermissions;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::permissions::admin_domain_permissions_get_impl;
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
-use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_DOMAIN_NO_PERM, SUBDOMAIN_INVALID_CHARS};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 mod private{
@@ -49,6 +49,12 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
     };
     if !permission.admin() && !permission.modify_domain() {
         return no_perm;
+    }
+    if !data.name.is_ascii() {
+        return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(template(domain, SUBDOMAIN_INVALID_CHARS)),
+        }));
     }
 
     let db = crate::get_mysql().await;

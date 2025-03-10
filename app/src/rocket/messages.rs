@@ -13,6 +13,7 @@ pub const VIEW_DOMAIN_NO_PERM:&str = r#"You don't have the permission to view th
 
 pub const LIST_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to list subdomains."#;
 pub const CREATE_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to create subdomains."#;
+pub const SUBDOMAIN_INVALID_CHARS:&str = r#"The (sub)domain name you entered was invalid."#;
 pub const DELETE_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to delete subdomains."#;
 pub const MODIFY_DOMAIN_NO_PERM:&str = r#"You don't have the permission to modify this domain."#;
 pub const OWNER_DOMAIN_NO_PERM:&str = r#"You are not the owner of this domain."#;

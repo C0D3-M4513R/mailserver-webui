@@ -70,7 +70,7 @@ WHERE
         format!(r#"<h2>Create new Subdomain:</h2>
 <form method="POST">
     <input type="hidden" name="_method" value="PUT" />
-    <label>Name: <a><input type="text" name="name" />{domain}</a></label>
+    <label>Name: <a><input type="text" pattern="[a-zA-Z0-9]+" name="name" />{domain}</a></label>
     <input type="submit" value="Add Subdomain" />
 </form>"#)
     } else {
