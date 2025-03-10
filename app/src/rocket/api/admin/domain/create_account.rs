@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
-use crate::rocket::messages::{CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
+use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 
@@ -25,6 +25,12 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         Some(v) => v,
     };
 
+    if !data.email.is_ascii() {
+        return Return::Content((rocket::http::Status::BadRequest, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(template(domain, ACCOUNT_INVALID_CHARS)),
+        }));
+    }
     match session.refresh_permissions(cookie_jar).await {
         Ok(()) => {},
         Err(err) => {

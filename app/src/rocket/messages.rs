@@ -8,6 +8,7 @@ pub const LIST_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to list a
 pub const CREATE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to create this accounts."#;
 pub const DELETE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to delete this account."#;
 pub const MODIFY_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to modify accounts."#;
+pub const ACCOUNT_INVALID_CHARS:&str = r#"The account name you entered was invalid."#;
 
 pub const VIEW_DOMAIN_NO_PERM:&str = r#"You don't have the permission to view this domain."#;
 
