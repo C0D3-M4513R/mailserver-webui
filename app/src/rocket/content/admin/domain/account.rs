@@ -39,6 +39,7 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
     let account = match sqlx::query!(r#"
 SELECT
     users.email AS "email!",
+    COALESCE(user_perm.self_change_password, false) AS "self_change_password!",
     target_perms.admin,
     target_perms.view_domain,
     target_perms.list_subdomain,
@@ -54,6 +55,7 @@ SELECT
     target_perms.manage_permissions
 FROM virtual_users users
 LEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2
+LEFT JOIN user_permission user_perm ON users.id = user_perm.id
 WHERE users.id = $1
 "#, user_id, permissions.domain_id())
         .fetch_one(db)
@@ -82,6 +84,12 @@ WHERE users.id = $1
         String::new()
     };
 
+    let self_change_password = if account.self_change_password {
+        "checked"
+    } else {
+        ""
+    };
+
     let email = &account.email;
     let account_info = format!(r#"
 <h2>Account Information:</h2>
@@ -94,6 +102,11 @@ WHERE users.id = $1
     <input type="hidden" name="_method" value="PUT" />
     <label>Password: <input type="password" name="password" {modify_account} /></label>
     <input type="submit" value="Update Password" {modify_account}/>
+</form>
+<form method="Post" action="{user_id}/user_permission">
+    <input type="hidden" name="_method" value="PUT" />
+    <label>Allow user to Change their Password themselves: <input type="checkbox" name="self_change_password" {self_change_password} {modify_account} /></label>
+    <input type="submit" value="Update User Permission" {modify_account}/>
 </form>
 {delete}
     "#);
