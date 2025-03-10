@@ -146,14 +146,19 @@ WHERE domains.id = $1
     };
     let owner = if permissions.is_owner() {
         let accounts = match sqlx::query!(r#"
-SELECT
+WITH owner_domains AS (
+    SELECT id FROM virtual_domains WHERE $1 = ANY(domain_owner)
+    UNION
+    SELECT domain_id as id FROM flattened_web_domain_permissions perms WHERE user_id = $1 AND (perms.admin OR perms.list_accounts)
+) SELECT
     users.id AS "id!",
     users.email AS "email!",
-    domains.name AS "domain!"
-FROM users
-JOIN virtual_domains domains ON $1 = ANY(domains.domain_owner)
-WHERE users.deleted = false AND users.domain_id = domains.id
-"#, session.get_user_id())
+    domains.name AS "domain!",
+    (users.id = domains.domain_owner) as "true_owner!"
+FROM owner_domains
+    JOIN virtual_users users ON users.domain_id = owner_domains.id
+    JOIN domains ON $2 = domains.id
+"#, session.get_user_id(), permissions.domain_id())
             .fetch_all(db)
             .await
         {

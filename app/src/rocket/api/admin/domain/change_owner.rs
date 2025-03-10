@@ -50,11 +50,11 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
     match sqlx::query!(r#"
 UPDATE domains
 SET domain_owner = $1
-FROM users, flattened_domains
+FROM virtual_users users, flattened_domains, flattened_web_domain_permissions slf_perms
 WHERE
-    domains.id = $3 AND
-    flattened_domains.id = $1 AND $2 = ANY(flattened_domains.domain_owner) AND
-    users.id = $1 AND users.deleted = false
+    users.id = $1 AND slf_perms.user_id = $2 AND domains.id = $3 AND
+    flattened_domains.id = domains.id AND slf_perms.domain_id = domains.id AND
+    (slf_perms.user_id = ANY(flattened_domains.domain_owner) OR slf_perms.admin OR slf_perms.list_accounts)
 "#, data.owner, session.get_user_id(), permission.domain_id()).execute(db).await {
         Ok(v) => {
             if v.rows_affected() != 1 {
