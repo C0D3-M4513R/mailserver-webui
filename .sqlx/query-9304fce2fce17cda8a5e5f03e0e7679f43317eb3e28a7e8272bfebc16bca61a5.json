@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nUPDATE domains\nSET domain_owner = $1\nFROM users, flattened_domains\nWHERE\n    domains.id = $3 AND\n    flattened_domains.id = $1 AND $2 = ANY(flattened_domains.domain_owner) AND\n    users.id = $1 AND users.deleted = false\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9304fce2fce17cda8a5e5f03e0e7679f43317eb3e28a7e8272bfebc16bca61a5"
+}
