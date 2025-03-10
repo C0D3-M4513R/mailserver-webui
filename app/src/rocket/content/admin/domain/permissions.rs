@@ -136,7 +136,7 @@ WHERE perms.domain_id = $1"#, permissions.domain_id())
 <div id="account-mod-error">{error}</div>
 <h2>Permissions: </h2>
 <p>Notice: Without List permissions, Modification permissions are useless. Also, Modification permission imply Delete permissions</p>
-<form method="POST" action="{domain}/permissions" onsubmit="(event)=>event.target.reset()">
+<form method="POST" action="permissions" onsubmit="(event)=>event.target.reset()">
 {update_permissions}
     <table>
         <tr>
