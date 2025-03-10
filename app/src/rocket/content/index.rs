@@ -67,7 +67,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
             return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))
         }
         Ok(out) => {
-            match super::check_password(out.id, login.password, None).await {
+            match super::check_password(out.id, out.id, login.password, None).await {
                 Err(super::AuthError::VerifyPassword(err)) => {
                     #[cfg(debug_assertions)]
                     log::debug!("Password incorrect: {err}");

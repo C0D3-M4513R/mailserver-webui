@@ -47,7 +47,7 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
         }));
     }
 
-    match check_password(session.get_user_id(), data.old_password.as_str(), Some(data.new_password.as_str())).await {
+    match check_password(session.get_user_id(), session.get_user_id(), data.old_password.as_str(), Some(data.new_password.as_str())).await {
         Ok(()) => Return::Content((rocket::http::Status::Ok, TypedContent {
             content_type: rocket::http::ContentType::HTML,
             content: Cow::Borrowed(const_format::concatcp!(HEAD, r#"<div class="success">The password was changed successfully</div>"#, FORM, TAIL))

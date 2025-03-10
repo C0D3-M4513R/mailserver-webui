@@ -15,6 +15,7 @@ pub(in crate::rocket) const HEAD:&str = const_format::formatcp!(r#"
 );
 pub(in crate::rocket) const FORM:&str = r#"
     <form method="POST">
+        <input type="hidden" name="_method" value="PUT"/>
         <label>Old Password: <input type="password" name="old_password"/></label>
         <label>New Password: <input type="password" name="new_password"/></label>
         <label>Confirm New Password: <input type="password" name="new_password1"/></label>

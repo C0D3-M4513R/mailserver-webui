@@ -39,7 +39,7 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
     let account = match sqlx::query!(r#"
 SELECT
     users.email AS "email!",
-    COALESCE(user_perm.self_change_password, false) AS "self_change_password!",
+    COALESCE(user_perm.self_change_password, true) AS "self_change_password!",
     target_perms.admin,
     target_perms.view_domain,
     target_perms.list_subdomain,

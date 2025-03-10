@@ -67,7 +67,7 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         }
     };
 
-    match set_password(&mut transaction, id, data.password).await {
+    match set_password(&mut transaction, id, session.get_user_id(), data.password).await {
         Err(err) => {
             log::error!("Error setting password: {err}");
             let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some("There was an error setting the account Password.")).await;

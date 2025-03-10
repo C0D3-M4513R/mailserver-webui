@@ -17,6 +17,10 @@ pub(super) mod private{
     pub struct UpdateAccountPassword<'a>{
         pub password: &'a str,
     }
+    #[derive(rocket::form::FromForm)]
+    pub struct UpdateUserPermissions{
+        pub self_change_password: bool,
+    }
 }
 
 #[rocket::put("/admin/<domain>/accounts/<user_id>/email", data = "<data>")]
@@ -55,12 +59,76 @@ pub async fn admin_domain_account_email_put(
         None => return no_perm,
         Some(v) => v,
     };
-    if !permission.admin() && !permission.create_accounts() {
+    if !permission.admin() && !permission.modify_accounts() {
         return no_perm;
     }
 
     let db = crate::get_mysql().await;
     match sqlx::query!("UPDATE virtual_users SET email = $1 WHERE id = $2", data.email, user_id).execute(db).await {
+        Ok(_) => {  },
+        Err(err) => {
+            log::error!("Error creating account: {err}");
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some(DATABASE_ERROR)).await;
+            err.override_status(rocket::http::Status::InternalServerError);
+            return err;
+        }
+    };
+
+    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
+}
+#[rocket::put("/admin/<domain>/accounts/<user_id>/user_permission", data = "<data>")]
+pub async fn admin_domain_account_user_permission_put(
+    session: Option<Session>,
+    domain: &'_ str,
+    user_id: i64,
+    data: rocket::form::Form<private::UpdateUserPermissions>,
+    cookie_jar: &'_ CookieJar<'_>
+) -> Return {
+    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(unauth_error(domain)),
+    }));
+    let mut session = match session {
+        None => return unauth_error,
+        Some(v) => v,
+    };
+
+    match session.refresh_permissions(cookie_jar).await{
+        Ok(()) => {},
+        Err(err) => {
+            log::error!("Error refreshing permissions: {err}");
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
+            }));
+        }
+    }
+
+    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
+        content_type: rocket::http::ContentType::HTML,
+        content: Cow::Owned(template(domain, MODIFY_ACCOUNT_NO_PERM)),
+    }));
+    let permission = match session.get_permissions().get(domain) {
+        None => return no_perm,
+        Some(v) => v,
+    };
+    if !permission.admin() && !permission.modify_accounts() {
+        return no_perm;
+    }
+
+    let db = crate::get_mysql().await;
+    let self_user_id = session.get_user_id();
+    let self_change_password = data.self_change_password;
+    match sqlx::query!("MERGE INTO user_permission
+    USING (WITH input AS ( SELECT $1::bigint as id, $2::bigint as slf_id, $3::bool as self_change_password )
+        SELECT input.id, input.self_change_password FROM input
+            JOIN users ON users.id = input.id
+            JOIN flattened_web_domain_permissions perms ON perms.user_id = input.slf_id AND perms.domain_id = users.domain_id
+            JOIN flattened_domains domains ON users.domain_id = domains.id
+            WHERE slf_id = ANY(domains.domain_owner) OR perms.admin OR perms.modify_accounts
+    ) AS input ON user_permission.id = input.id
+    WHEN MATCHED THEN UPDATE SET self_change_password = input.self_change_password
+    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)", user_id, self_user_id, self_change_password).execute(db).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error creating account: {err}");
@@ -123,7 +191,7 @@ pub async fn admin_domain_account_password_put(
         }
     };
 
-    match set_password(&mut transaction, user_id, data.into_inner().password).await {
+    match set_password(&mut transaction, user_id, session.get_user_id(), data.into_inner().password).await {
         Err(err) => {
             log::error!("Error setting password: {err}");
             let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some("There was an error setting the account Password.")).await;
