@@ -42,6 +42,7 @@ SELECT
     COALESCE(user_perm.self_change_password, true) AS "self_change_password!",
     target_perms.admin,
     target_perms.view_domain,
+    target_perms.modify_domain,
     target_perms.list_subdomain,
     target_perms.create_subdomain,
     target_perms.delete_subdomain,
@@ -118,6 +119,7 @@ WHERE users.id = $1
 
         let admin = format_value(               "Admin: ",                  "admin",                account.admin,               p_manage_perm && (p_admin || permissions.admin()));
         let view_domain = format_value(         "View Domain: ",            "view_domain",          account.view_domain,         p_manage_perm && (p_admin || permissions.view_domain()));
+        let modify_domain = format_value(         "Modify Domain: ",            "modify_domain",    account.modify_domain,         p_manage_perm && (p_admin || permissions.modify_domain()));
         let list_subdomain = format_value(      "List Subdomain: ",         "list_subdomain",       account.list_subdomain,      p_manage_perm && (p_admin || permissions.list_subdomain()));
         let create_subdomain = format_value(    "Create Subdomain: ",       "create_subdomain",     account.create_subdomain,    p_manage_perm && (p_admin || permissions.create_subdomain()));
         let delete_subdomain = format_value(    "Delete Subdomain: ",       "delete_subdomain",     account.delete_subdomain,    p_manage_perm && (p_admin || permissions.delete_subdomain()));
@@ -137,6 +139,7 @@ WHERE users.id = $1
     <input type="hidden" name="domain_id" value="{domain_id}"/>
     {admin} This Permission overrides everything else (except manage permissions), if set.<br/>
     {view_domain}<br/>
+    {modify_domain}<br/>
     {list_subdomain}<br/>
     {create_subdomain}<br/>
     {delete_subdomain}<br/>

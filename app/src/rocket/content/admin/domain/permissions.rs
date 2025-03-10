@@ -78,6 +78,7 @@ WHERE domains.id = $1"#, permissions.domain_id())
                 };
                 let admin = format_value(               "",                  format!("users[{user_id}].value.admin"),              v.admin,               p_manage_perm && (p_admin || permissions.admin()));
                 let view_domain = format_value(         "",            format!("users[{user_id}].value.view_domain"),        v.view_domain,         p_manage_perm && (p_admin || permissions.view_domain()));
+                let modify_domain = format_value(         "",            format!("users[{user_id}].value.modify_domain"),        v.modify_domain,         p_manage_perm && (p_admin || permissions.modify_domain()));
                 let list_subdomain = format_value(      "",         format!("users[{user_id}].value.list_subdomain"),     v.list_subdomain,      p_manage_perm && (p_admin || permissions.list_subdomain()));
                 let create_subdomain = format_value(    "",       format!("users[{user_id}].value.create_subdomain"),   v.create_subdomain,    p_manage_perm && (p_admin || permissions.create_subdomain()));
                 let delete_subdomain = format_value(    "",       format!("users[{user_id}].value.delete_subdomain"),   v.delete_subdomain,    p_manage_perm && (p_admin || permissions.delete_subdomain()));
@@ -93,6 +94,7 @@ WHERE domains.id = $1"#, permissions.domain_id())
     <td>{is_owner}</td>
     <td>{admin}</td>
     <td>{view_domain}</td>
+    <td>{modify_domain}</td>
     <td>{list_subdomain}</td>
     <td>{create_subdomain}</td>
     <td>{delete_subdomain}</td>
@@ -145,6 +147,7 @@ WHERE domains.id = $1"#, permissions.domain_id())
             <th>Is Owner</th>
             <th>Admin</th>
             <th>View Domain</th>
+            <th>Modify Domain</th>
             <th>List Subdomain</th>
             <th>Create Subdomain</th>
             <th>Delete Subdomain</th>
