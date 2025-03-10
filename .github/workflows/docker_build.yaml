@@ -60,7 +60,7 @@ jobs:
 
       # Build the package defined in the Nix Flake
       - name: Build the derivation defined in the Nix Flake
-        run: nix --extra-experimental-features nix-command --extra-experimental-features flakes build .#$(yq .package.name Cargo.toml)-docker
+        run: nix --extra-experimental-features nix-command --extra-experimental-features flakes build .#$(yq .package.name app/Cargo.toml)-docker
 
       - uses: docker/login-action@v3
         with:
@@ -72,14 +72,14 @@ jobs:
       - name: Tag commit as Release
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
-          tag=$(yq .package.version Cargo.toml)
+          tag=$(yq .package.version app/Cargo.toml)
           git tag "$tag"
           git push origin "$tag"
 
       - name: re-tag as version and push
         run: |
-          version=$(yq .package.version Cargo.toml)
-          docker tag $(yq .package.name Cargo.toml):${version}-${{ matrix.arch }} ghcr.io/c0d3-m4513r/mailserver-webui:${GITHUB_SHA}-${{ matrix.arch }}
+          version=$(yq .package.version app/Cargo.toml)
+          docker tag $(yq .package.name app/Cargo.toml):${version}-${{ matrix.arch }} ghcr.io/c0d3-m4513r/mailserver-webui:${GITHUB_SHA}-${{ matrix.arch }}
           docker push ghcr.io/c0d3-m4513r/mailserver-webui:${GITHUB_SHA}-${{ matrix.arch }}
   multi-arch:
     permissions:
