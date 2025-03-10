@@ -77,5 +77,15 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         Ok(()) => {},
     }
 
+    match transaction.commit().await {
+        Ok(()) => {},
+        Err(err) => {
+            log::error!("Error commiting account: {err}");
+            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
+            result.override_status(rocket::http::Status::InternalServerError);
+            return result;
+        }
+    }
+
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts")))
 }
