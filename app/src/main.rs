@@ -33,19 +33,23 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let _ = get_mysql().await;
-// let r = sqlx::query!(r#"
-// SELECT
-//     user_id,
-//     NULLIF(admin[0], admin[1]) AS admin,
-// FROM (SELECT * FROM unnest(
-//     $1::bigint[],
-//     $2::bool[][]
-//   ) AS t(
-//     user_id,
-//     admin
-// ))
-// "#, &[1, 2, 3], &[[false, true], [false, false], [true, false]]).fetch_all(db).await;
-//     log::info!("r: {:?}", r);
+ //    const Q_NULL: [bool;2] = [false, false];
+ //    const Q_FALSE: [bool;2] = [false, true];
+ //    const Q_TRUE: [bool;2] = [true, false];
+ //    let input = vec![Q_NULL,Q_FALSE, Q_TRUE];
+ // let r = sqlx::query!(r#"
+ // SELECT
+ //     user_id,
+ //     admin
+ // FROM (SELECT * FROM unnest(
+ //     $1::bigint[],
+ //     ARRAY(SELECT NULLIF(($2::boolean[][])[d1][1],($2::boolean[][])[d1][2]) FROM generate_subscripts(($2::boolean[][]), 1) as d1)
+ //   ) AS t(
+ //     user_id,
+ //     admin
+ // ))
+ // "#, &[1, 2, 3], input.as_slice()).fetch_all(db).await;
+ //     log::info!("r: {:?}", r);
 
     ::rocket::build()
         .mount("/", ::rocket::routes![

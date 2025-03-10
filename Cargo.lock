@@ -1174,6 +1174,7 @@ dependencies = [
  "dotenvy",
  "flate2",
  "log",
+ "mailserver-web-macro",
  "password-hash",
  "pbkdf2",
  "rand 0.9.0",
@@ -1190,10 +1191,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "mailserver_webui_macro"
+name = "mailserver-web-macro"
 version = "0.1.0"
 dependencies = [
+ "const_format",
  "proc-macro2",
+ "quote",
  "syn",
 ]
 

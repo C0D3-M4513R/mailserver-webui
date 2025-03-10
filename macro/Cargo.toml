@@ -1,5 +1,5 @@
 [package]
-name = "mailserver_webui_macro"
+name = "mailserver-web-macro"
 version = "0.1.0"
 edition = "2024"
 
@@ -8,4 +8,6 @@ proc-macro = true
 
 [dependencies]
 proc-macro2 = "1.0.94"
+quote = "1.0.39"
 syn = { version = "2.0.99", features = ["full"] }
+const_format = "0.2.34"
