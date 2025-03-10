@@ -1,17 +1,17 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO virtual_users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id",
+  "query": "INSERT INTO users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
         "name": "id",
-        "type_info": "Int4"
+        "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Int4",
+        "Int8",
         "Text"
       ]
     },
@@ -19,5 +19,5 @@
       false
     ]
   },
-  "hash": "d467631a8e0bf47971ca1c6052b3623ee96d756e7733092625fe9eae045fd510"
+  "hash": "8f492d5a288d04191b91c3787887db1d505da88df2d5c0ab2c4bbcadda9b3428"
 }

@@ -1,93 +1,87 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    users.id,\n    users.email,\n    target_perms.admin,\n    target_perms.view_domain,\n    target_perms.list_subdomain,\n    target_perms.create_subdomain,\n    target_perms.delete_subdomain,\n    target_perms.list_accounts,\n    target_perms.create_accounts,\n    target_perms.modify_accounts,\n    target_perms.delete_accounts,\n    target_perms.create_alias,\n    target_perms.modify_alias,\n    target_perms.list_permissions,\n    target_perms.manage_permissions\nFROM virtual_users users\nLEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2\nWHERE users.id = $1\n",
+  "query": "\nSELECT\n    users.email AS \"email!\",\n    target_perms.admin,\n    target_perms.view_domain,\n    target_perms.list_subdomain,\n    target_perms.create_subdomain,\n    target_perms.delete_subdomain,\n    target_perms.list_accounts,\n    target_perms.create_accounts,\n    target_perms.modify_accounts,\n    target_perms.delete_accounts,\n    target_perms.create_alias,\n    target_perms.modify_alias,\n    target_perms.list_permissions,\n    target_perms.manage_permissions\nFROM virtual_users users\nLEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2\nWHERE users.id = $1\n",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
-        "type_info": "Int4"
-      },
-      {
-        "ordinal": 1,
-        "name": "email",
+        "name": "email!",
         "type_info": "Text"
       },
       {
-        "ordinal": 2,
+        "ordinal": 1,
         "name": "admin",
         "type_info": "Bool"
       },
       {
-        "ordinal": 3,
+        "ordinal": 2,
         "name": "view_domain",
         "type_info": "Bool"
       },
       {
-        "ordinal": 4,
+        "ordinal": 3,
         "name": "list_subdomain",
         "type_info": "Bool"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "create_subdomain",
         "type_info": "Bool"
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "delete_subdomain",
         "type_info": "Bool"
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "list_accounts",
         "type_info": "Bool"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "create_accounts",
         "type_info": "Bool"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "modify_accounts",
         "type_info": "Bool"
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "delete_accounts",
         "type_info": "Bool"
       },
       {
-        "ordinal": 11,
+        "ordinal": 10,
         "name": "create_alias",
         "type_info": "Bool"
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "modify_alias",
         "type_info": "Bool"
       },
       {
-        "ordinal": 13,
+        "ordinal": 12,
         "name": "list_permissions",
         "type_info": "Bool"
       },
       {
-        "ordinal": 14,
+        "ordinal": 13,
         "name": "manage_permissions",
         "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
-        "Int4",
-        "Int4"
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
-      false,
-      false,
+      true,
       true,
       true,
       true,
@@ -103,5 +97,5 @@
       true
     ]
   },
-  "hash": "54d986e27cbf53aa18e272ab9152fb423face99b684edc7b0dc659a770af0772"
+  "hash": "606be93c94ca70e6ae50e5ee54f30e9f81ee6e9b7b426e5e4f968c749b120524"
 }
