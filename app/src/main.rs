@@ -50,6 +50,10 @@ async fn main() -> anyhow::Result<()> {
  // ))
  // "#, &[1, 2, 3], input.as_slice()).fetch_all(db).await;
  //     log::info!("r: {:?}", r);
+ //
+ //    let v = sqlx::query!(r#"Select ARRAY[null, false, true] as "test!""#)
+ //        .fetch_one(get_mysql().await).await.expect("test");
+ //    let test:Vec<Option<bool>> = v.test;
 
     ::rocket::build()
         .mount("/", ::rocket::routes![
