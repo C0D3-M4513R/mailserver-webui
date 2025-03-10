@@ -1,0 +1,197 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    users.email AS \"email!\",\n    COALESCE(user_perm.self_change_password, true) AS \"self_change_password!\",\n    target_perms.admin, flat_perms.admin as \"current_admin!\",\n    target_perms.view_domain, flat_perms.view_domain as \"current_view_domain!\",\n    target_perms.modify_domain, flat_perms.modify_domain as \"current_modify_domain!\",\n    target_perms.list_subdomain, flat_perms.list_subdomain as \"current_list_subdomain!\",\n    target_perms.create_subdomain, flat_perms.create_subdomain as \"current_create_subdomain!\",\n    target_perms.delete_subdomain, flat_perms.delete_subdomain as \"current_delete_subdomain!\",\n    target_perms.list_accounts, flat_perms.list_accounts as \"current_list_accounts!\",\n    target_perms.create_accounts, flat_perms.create_accounts as \"current_create_accounts!\",\n    target_perms.modify_accounts, flat_perms.modify_accounts as \"current_modify_accounts!\",\n    target_perms.delete_accounts, flat_perms.delete_accounts as \"current_delete_accounts!\",\n    target_perms.create_alias, flat_perms.create_alias as \"current_create_alias!\",\n    target_perms.modify_alias, flat_perms.modify_alias as \"current_modify_alias!\",\n    target_perms.list_permissions, flat_perms.list_permissions as \"current_list_permissions!\",\n    target_perms.manage_permissions, flat_perms.manage_permissions as \"current_manage_permissions!\"\nFROM virtual_users users\nLEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2\nLEFT JOIN user_permission user_perm ON users.id = user_perm.id\nJOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = users.domain_id AND flat_perms.user_id = users.id\nWHERE users.id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "self_change_password!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 2,
+        "name": "admin",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "current_admin!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "view_domain",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "current_view_domain!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "modify_domain",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "current_modify_domain!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "list_subdomain",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "current_list_subdomain!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "create_subdomain",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "current_create_subdomain!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "delete_subdomain",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 13,
+        "name": "current_delete_subdomain!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 14,
+        "name": "list_accounts",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "current_list_accounts!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
+        "name": "create_accounts",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 17,
+        "name": "current_create_accounts!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 18,
+        "name": "modify_accounts",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 19,
+        "name": "current_modify_accounts!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 20,
+        "name": "delete_accounts",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 21,
+        "name": "current_delete_accounts!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 22,
+        "name": "create_alias",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 23,
+        "name": "current_create_alias!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 24,
+        "name": "modify_alias",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 25,
+        "name": "current_modify_alias!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 26,
+        "name": "list_permissions",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 27,
+        "name": "current_list_permissions!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 28,
+        "name": "manage_permissions",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 29,
+        "name": "current_manage_permissions!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "f4905a63298d76ea81ee89035049302fe1474ad56befd12b560eb7a32e0e7dff"
+}
