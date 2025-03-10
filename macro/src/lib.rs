@@ -2,10 +2,10 @@ use quote::quote;
 
 macro_rules! get_perm {
     (manage_permissions) => {
-        r#"CASE WHEN domains.domain_owner = input.user_id OR (slf.admin AND slf.manage_permissions)                              THEN input.manage_permissions  ELSE target.manage_permissions    END AS manage_permissions"#
+        r#"CASE WHEN input.user_id = ANY(domains.domain_owner) OR (slf.admin AND slf.manage_permissions)                              THEN input.manage_permissions  ELSE target.manage_permissions    END AS manage_permissions"#
     };
     ($para:expr) => {
-        concat!(r#"CASE WHEN domains.domain_owner = input.user_id OR (slf.manage_permissions AND (slf.admin OR slf."#, stringify!($para), "))               THEN input.", stringify!($para) , "               ELSE target.", stringify!($para) ,  "                 END AS " , stringify!($para))
+        concat!(r#"CASE WHEN input.user_id = ANY(domains.domain_owner) OR (slf.manage_permissions AND (slf.admin OR slf."#, stringify!($para), "))               THEN input.", stringify!($para) , "               ELSE target.", stringify!($para) ,  "                 END AS " , stringify!($para))
     };
 }
 macro_rules! get_bind {
@@ -14,7 +14,7 @@ macro_rules! get_bind {
     }};
     (@_impl, $lit:expr, $para:expr) => {{
         const NUM:u64 = $lit;
-        const_format::concatcp!("$", NUM,"::boolean[][]")
+        const_format::concatcp!("$", NUM,"::boolean[]")
     }};
     ($($para:expr),+) => { get_bind!(@_impl, 4, $($para),+) };
 }
@@ -43,7 +43,7 @@ perms!(_impl,
             const QUERY_IDENTS:&str = concat!($(stringify!($ident) , "," , )+);
 
             const_format::concatcp!(r#"
-            MERGE INTO web_domain_permissions AS perm
+MERGE INTO web_domain_permissions AS perm
     USING (
         WITH input AS (
             SELECT * FROM unnest(
@@ -60,11 +60,10 @@ perms!(_impl,
         ) SELECT
             input.user_id AS target_user_id,"# , $(get_perm!($ident) , "," ,)* r#"
             $1 as domain_id
-        FROM web_domain_permissions target
-            JOIN input ON target.user_id = input.user_id
+        FROM input
+            JOIN virtual_domains domains ON domains.id = $1
             JOIN flattened_web_domain_permissions slf ON slf.domain_id = $1 AND slf.user_id = $2
-            JOIN domains ON domains.id = $1
-        WHERE target.domain_id = $1
+            LEFT JOIN web_domain_permissions target ON target.domain_id = domains.id AND target.user_id = input.user_id
    ) AS row ON perm.domain_id = row.domain_id AND perm.user_id = row.target_user_id
 WHEN MATCHED THEN
     UPDATE SET
@@ -92,7 +91,7 @@ r#"     domains.name as "domain!",
         perm.domain_id as "domain_id!",
         domains.accepts_email as "domain_accepts_email!",
         domains.level as "domain_level!",
-        (domains.domain_owner = perm.user_id) as "is_owner!"
+        perm.user_id = ANY(domains.domain_owner) as "is_owner!"
 FROM flattened_web_domain_permissions perm
 JOIN virtual_domains domains ON domains.id = perm.domain_id
         WHERE perm.user_id = $1"#);
