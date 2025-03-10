@@ -50,10 +50,12 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
     match sqlx::query!(r#"
 UPDATE domains
 SET domain_owner = $1
-FROM users
-WHERE users.id = $1 AND users.deleted = false AND
-    users.domain_id = $2 AND domains.id = $2
-    "#, data.owner, permission.domain_id()).execute(db).await {
+FROM users, flattened_domains
+WHERE
+    domains.id = $3 AND
+    flattened_domains.id = $1 AND $2 = ANY(flattened_domains.domain_owner) AND
+    users.id = $1 AND users.deleted = false
+"#, data.owner, session.get_user_id(), permission.domain_id()).execute(db).await {
         Ok(v) => {
             if v.rows_affected() != 1 {
                 log::debug!("Tried to update domain owner, but no rows were changed?");
