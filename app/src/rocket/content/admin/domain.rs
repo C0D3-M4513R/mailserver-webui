@@ -180,7 +180,8 @@ WHERE users.deleted = false AND users.domain_id = domains.id
         if !accounts.is_empty() {
             format!(r#"
 <h2>Change Owner:</h2>
-    <form action="./owner">
+    <form action="./owner" method="POST">
+    <input type="hidden" name="_method" value="PUT" />
     <select name="owner">
         {accounts}
     </select>
