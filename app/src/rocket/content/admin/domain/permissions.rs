@@ -42,25 +42,26 @@ SELECT
     user_domain.name as "name!",
     users.email as "email!",
     users.id as "id!",
-    users.id = ANY(domains.domain_owner) as "is_owner!",
-    perms.admin,
-    perms.view_domain,
-    perms.modify_domain,
-    perms.list_subdomain,
-    perms.create_subdomain,
-    perms.delete_subdomain,
-    perms.list_accounts,
-    perms.create_accounts,
-    perms.modify_accounts,
-    perms.delete_accounts,
-    perms.create_alias,
-    perms.modify_alias,
-    perms.list_permissions,
-    perms.manage_permissions
+    flat_perms.is_owner as "is_owner!",
+    perms.admin, flat_perms.admin as "current_admin!",
+    perms.view_domain, flat_perms.view_domain as "current_view_domain!",
+    perms.modify_domain, flat_perms.modify_domain as "current_modify_domain!",
+    perms.list_subdomain, flat_perms.list_subdomain as "current_list_subdomain!",
+    perms.create_subdomain, flat_perms.create_subdomain as "current_create_subdomain!",
+    perms.delete_subdomain, flat_perms.delete_subdomain as "current_delete_subdomain!",
+    perms.list_accounts, flat_perms.list_accounts as "current_list_accounts!",
+    perms.create_accounts, flat_perms.create_accounts as "current_create_accounts!",
+    perms.modify_accounts, flat_perms.modify_accounts as "current_modify_accounts!",
+    perms.delete_accounts, flat_perms.delete_accounts as "current_delete_accounts!",
+    perms.create_alias, flat_perms.create_alias as "current_create_alias!",
+    perms.modify_alias, flat_perms.modify_alias as "current_modify_alias!",
+    perms.list_permissions, flat_perms.list_permissions as "current_list_permissions!",
+    perms.manage_permissions, flat_perms.manage_permissions as "current_manage_permissions!"
 FROM virtual_domains domains
 JOIN virtual_users users ON users.domain_id = domains.id OR users.domain_id = ANY(domains.super)
 JOIN virtual_domains user_domain ON users.domain_id = user_domain.id
 LEFT JOIN web_domain_permissions perms ON perms.domain_id = domains.id AND perms.user_id = users.id
+JOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = domains.id AND flat_perms.user_id = users.id
 WHERE domains.id = $1"#, permissions.domain_id())
         .fetch_all(db)
         .await
@@ -76,20 +77,20 @@ WHERE domains.id = $1"#, permissions.domain_id())
                     let checked = if v.is_owner { "checked" } else { "" };
                     format!(r#"<input type="checkbox" {checked} disabled />"#)
                 };
-                let admin = format_value(               "",                  format!("users[{user_id}].value.admin"),              v.admin,               p_manage_perm && (p_admin || permissions.admin()));
-                let view_domain = format_value(         "",            format!("users[{user_id}].value.view_domain"),        v.view_domain,         p_manage_perm && (p_admin || permissions.view_domain()));
-                let modify_domain = format_value(         "",            format!("users[{user_id}].value.modify_domain"),        v.modify_domain,         p_manage_perm && (p_admin || permissions.modify_domain()));
-                let list_subdomain = format_value(      "",         format!("users[{user_id}].value.list_subdomain"),     v.list_subdomain,      p_manage_perm && (p_admin || permissions.list_subdomain()));
-                let create_subdomain = format_value(    "",       format!("users[{user_id}].value.create_subdomain"),   v.create_subdomain,    p_manage_perm && (p_admin || permissions.create_subdomain()));
-                let delete_subdomain = format_value(    "",       format!("users[{user_id}].value.delete_subdomain"),   v.delete_subdomain,    p_manage_perm && (p_admin || permissions.delete_subdomain()));
-                let list_accounts = format_value(       "",          format!("users[{user_id}].value.list_accounts"),      v.list_accounts,       p_manage_perm && (p_admin || permissions.list_accounts()));
-                let create_accounts = format_value(     "",        format!("users[{user_id}].value.create_accounts"),    v.create_accounts,     p_manage_perm && (p_admin || permissions.create_accounts()));
-                let modify_accounts = format_value(     "",        format!("users[{user_id}].value.modify_accounts"),    v.modify_accounts,     p_manage_perm && (p_admin || permissions.modify_accounts()));
-                let delete_accounts = format_value(     "",        format!("users[{user_id}].value.delete_accounts"),    v.delete_accounts,     p_manage_perm && (p_admin || permissions.delete_accounts()));
-                let create_alias = format_value(        "",           format!("users[{user_id}].value.create_alias"),       v.create_alias,        p_manage_perm && (p_admin || permissions.create_alias()));
-                let modify_alias = format_value(        "",           format!("users[{user_id}].value.modify_alias"),       v.modify_alias,        p_manage_perm && (p_admin || permissions.modify_alias()));
-                let list_permissions = format_value(    "",       format!("users[{user_id}].value.list_permissions"),   v.list_permissions,    p_manage_perm && (p_admin || permissions.list_permissions()));
-                let manage_permissions = format_value(  "",     format!("users[{user_id}].value.manage_permissions"), v.manage_permissions,  p_manage_perm && (p_admin || permissions.manage_permissions()));
+                let admin = format_value(               "",                  format!("users[{user_id}].value.admin"),              v.admin, v.current_admin,               p_manage_perm && (p_admin || permissions.admin()));
+                let view_domain = format_value(         "",            format!("users[{user_id}].value.view_domain"),        v.view_domain, v.current_view_domain,         p_manage_perm && (p_admin || permissions.view_domain()));
+                let modify_domain = format_value(         "",            format!("users[{user_id}].value.modify_domain"),  v.modify_domain, v.current_modify_domain,       p_manage_perm && (p_admin || permissions.modify_domain()));
+                let list_subdomain = format_value(      "",         format!("users[{user_id}].value.list_subdomain"),     v.list_subdomain, v.current_list_subdomain,      p_manage_perm && (p_admin || permissions.list_subdomain()));
+                let create_subdomain = format_value(    "",       format!("users[{user_id}].value.create_subdomain"),   v.create_subdomain, v.current_create_subdomain,    p_manage_perm && (p_admin || permissions.create_subdomain()));
+                let delete_subdomain = format_value(    "",       format!("users[{user_id}].value.delete_subdomain"),   v.delete_subdomain, v.current_delete_subdomain,    p_manage_perm && (p_admin || permissions.delete_subdomain()));
+                let list_accounts = format_value(       "",          format!("users[{user_id}].value.list_accounts"),      v.list_accounts, v.current_list_accounts,       p_manage_perm && (p_admin || permissions.list_accounts()));
+                let create_accounts = format_value(     "",        format!("users[{user_id}].value.create_accounts"),    v.create_accounts, v.current_create_accounts,     p_manage_perm && (p_admin || permissions.create_accounts()));
+                let modify_accounts = format_value(     "",        format!("users[{user_id}].value.modify_accounts"),    v.modify_accounts, v.current_modify_accounts,     p_manage_perm && (p_admin || permissions.modify_accounts()));
+                let delete_accounts = format_value(     "",        format!("users[{user_id}].value.delete_accounts"),    v.delete_accounts, v.current_delete_accounts,     p_manage_perm && (p_admin || permissions.delete_accounts()));
+                let create_alias = format_value(        "",           format!("users[{user_id}].value.create_alias"),       v.create_alias, v.current_create_alias,        p_manage_perm && (p_admin || permissions.create_alias()));
+                let modify_alias = format_value(        "",           format!("users[{user_id}].value.modify_alias"),       v.modify_alias, v.current_modify_alias,        p_manage_perm && (p_admin || permissions.modify_alias()));
+                let list_permissions = format_value(    "",       format!("users[{user_id}].value.list_permissions"),   v.list_permissions, v.current_list_permissions,    p_manage_perm && (p_admin || permissions.list_permissions()));
+                let manage_permissions = format_value(  "",     format!("users[{user_id}].value.manage_permissions"), v.manage_permissions, v.current_manage_permissions,  p_manage_perm && (p_admin || permissions.manage_permissions()));
                 format!(r#"
     <td>{is_owner}</td>
     <td>{admin}</td>
@@ -138,6 +139,8 @@ WHERE domains.id = $1"#, permissions.domain_id())
 <div id="account-mod-error">{error}</div>
 <h2>Permissions: </h2>
 <p>Notice: Without List permissions, Modification permissions are useless. Also, Modification permission imply Delete permissions</p>
+<p>Inherited permissions means, that if the user has a permission defined on a parent domain, it will be inherited to this domain. Inherited permissions usually means false.</p>
+<p>Owners bypass all permission checks.</p>
 <form method="POST" action="permissions" onsubmit="(event)=>event.target.reset()">
 {update_permissions}
     <table>
@@ -167,7 +170,7 @@ WHERE domains.id = $1"#, permissions.domain_id())
     }))
 }
 
-pub fn format_value(display: impl Display, name: impl Display, value: Option<bool>, enabled: bool) -> String {
+pub fn format_value(display: impl Display, name: impl Display, value: Option<bool>, current: bool, enabled: bool) -> String {
     let v_value = match value {
         Some(true) => "true",
         Some(false) => "false",
@@ -184,7 +187,7 @@ pub fn format_value(display: impl Display, name: impl Display, value: Option<boo
     format!(r#"{extra_disabled}<label>{display}<select name="{name}" {enabled} >
     <option value="true" {v_true}>True</option>
     <option value="false" {v_false}>False</option>
-    <option value="null" {v_null}>Inherited</option>
+    <option value="null" {v_null}>Inherited ({current})</option>
 </select></label>
             "#)
 }

@@ -40,23 +40,24 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
 SELECT
     users.email AS "email!",
     COALESCE(user_perm.self_change_password, true) AS "self_change_password!",
-    target_perms.admin,
-    target_perms.view_domain,
-    target_perms.modify_domain,
-    target_perms.list_subdomain,
-    target_perms.create_subdomain,
-    target_perms.delete_subdomain,
-    target_perms.list_accounts,
-    target_perms.create_accounts,
-    target_perms.modify_accounts,
-    target_perms.delete_accounts,
-    target_perms.create_alias,
-    target_perms.modify_alias,
-    target_perms.list_permissions,
-    target_perms.manage_permissions
+    target_perms.admin, flat_perms.admin as "current_admin!",
+    target_perms.view_domain, flat_perms.view_domain as "current_view_domain!",
+    target_perms.modify_domain, flat_perms.modify_domain as "current_modify_domain!",
+    target_perms.list_subdomain, flat_perms.list_subdomain as "current_list_subdomain!",
+    target_perms.create_subdomain, flat_perms.create_subdomain as "current_create_subdomain!",
+    target_perms.delete_subdomain, flat_perms.delete_subdomain as "current_delete_subdomain!",
+    target_perms.list_accounts, flat_perms.list_accounts as "current_list_accounts!",
+    target_perms.create_accounts, flat_perms.create_accounts as "current_create_accounts!",
+    target_perms.modify_accounts, flat_perms.modify_accounts as "current_modify_accounts!",
+    target_perms.delete_accounts, flat_perms.delete_accounts as "current_delete_accounts!",
+    target_perms.create_alias, flat_perms.create_alias as "current_create_alias!",
+    target_perms.modify_alias, flat_perms.modify_alias as "current_modify_alias!",
+    target_perms.list_permissions, flat_perms.list_permissions as "current_list_permissions!",
+    target_perms.manage_permissions, flat_perms.manage_permissions as "current_manage_permissions!"
 FROM virtual_users users
 LEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2
 LEFT JOIN user_permission user_perm ON users.id = user_perm.id
+JOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = users.domain_id AND flat_perms.user_id = users.id
 WHERE users.id = $1
 "#, user_id, permissions.domain_id())
         .fetch_one(db)
@@ -117,20 +118,20 @@ WHERE users.id = $1
         let p_admin = permissions.admin();
         let p_manage_perm = permissions.manage_permissions();
 
-        let admin = format_value(               "Admin: ",                  "admin",                account.admin,               p_manage_perm && (p_admin || permissions.admin()));
-        let view_domain = format_value(         "View Domain: ",            "view_domain",          account.view_domain,         p_manage_perm && (p_admin || permissions.view_domain()));
-        let modify_domain = format_value(         "Modify Domain: ",            "modify_domain",    account.modify_domain,         p_manage_perm && (p_admin || permissions.modify_domain()));
-        let list_subdomain = format_value(      "List Subdomain: ",         "list_subdomain",       account.list_subdomain,      p_manage_perm && (p_admin || permissions.list_subdomain()));
-        let create_subdomain = format_value(    "Create Subdomain: ",       "create_subdomain",     account.create_subdomain,    p_manage_perm && (p_admin || permissions.create_subdomain()));
-        let delete_subdomain = format_value(    "Delete Subdomain: ",       "delete_subdomain",     account.delete_subdomain,    p_manage_perm && (p_admin || permissions.delete_subdomain()));
-        let list_accounts = format_value(       "List Accounts: ",          "list_accounts",        account.list_accounts,       p_manage_perm && (p_admin || permissions.list_accounts()));
-        let create_accounts = format_value(     "Create Accounts: ",        "create_accounts",      account.create_accounts,     p_manage_perm && (p_admin || permissions.create_accounts()));
-        let modify_accounts = format_value(     "Modify Accounts: ",        "modify_accounts",      account.modify_accounts,     p_manage_perm && (p_admin || permissions.modify_accounts()));
-        let delete_accounts = format_value(     "Delete Accounts: ",        "delete_accounts",      account.delete_accounts,     p_manage_perm && (p_admin || permissions.delete_accounts()));
-        let create_alias = format_value(        "Create Alias: ",           "create_alias",         account.create_alias,        p_manage_perm && (p_admin || permissions.create_alias()));
-        let modify_alias = format_value(        "Modify Alias: ",           "modify_alias",         account.modify_alias,        p_manage_perm && (p_admin || permissions.modify_alias()));
-        let list_permissions = format_value(    "List Permissions: ",       "list_permissions",     account.list_permissions,    p_manage_perm && (p_admin || permissions.list_permissions()));
-        let manage_permissions = format_value(  "Manage Permissions: ",     "manage_permissions",   account.manage_permissions,  p_manage_perm && (p_admin || permissions.manage_permissions()));
+        let admin = format_value(               "Admin: ",                  "admin",                account.admin,                  account.current_admin,               p_manage_perm && (p_admin || permissions.admin()));
+        let view_domain = format_value(         "View Domain: ",            "view_domain",          account.view_domain,            account.current_view_domain,         p_manage_perm && (p_admin || permissions.view_domain()));
+        let modify_domain = format_value(         "Modify Domain: ",            "modify_domain",    account.modify_domain,          account.current_modify_domain,         p_manage_perm && (p_admin || permissions.modify_domain()));
+        let list_subdomain = format_value(      "List Subdomain: ",         "list_subdomain",       account.list_subdomain,         account.current_list_subdomain,      p_manage_perm && (p_admin || permissions.list_subdomain()));
+        let create_subdomain = format_value(    "Create Subdomain: ",       "create_subdomain",     account.create_subdomain,       account.current_create_subdomain,    p_manage_perm && (p_admin || permissions.create_subdomain()));
+        let delete_subdomain = format_value(    "Delete Subdomain: ",       "delete_subdomain",     account.delete_subdomain,       account.current_delete_subdomain,    p_manage_perm && (p_admin || permissions.delete_subdomain()));
+        let list_accounts = format_value(       "List Accounts: ",          "list_accounts",        account.list_accounts,          account.current_list_accounts,       p_manage_perm && (p_admin || permissions.list_accounts()));
+        let create_accounts = format_value(     "Create Accounts: ",        "create_accounts",      account.create_accounts,        account.current_create_accounts,     p_manage_perm && (p_admin || permissions.create_accounts()));
+        let modify_accounts = format_value(     "Modify Accounts: ",        "modify_accounts",      account.modify_accounts,        account.current_modify_accounts,     p_manage_perm && (p_admin || permissions.modify_accounts()));
+        let delete_accounts = format_value(     "Delete Accounts: ",        "delete_accounts",      account.delete_accounts,        account.current_delete_accounts,     p_manage_perm && (p_admin || permissions.delete_accounts()));
+        let create_alias = format_value(        "Create Alias: ",           "create_alias",         account.create_alias,           account.current_create_alias,        p_manage_perm && (p_admin || permissions.create_alias()));
+        let modify_alias = format_value(        "Modify Alias: ",           "modify_alias",         account.modify_alias,           account.current_modify_alias,        p_manage_perm && (p_admin || permissions.modify_alias()));
+        let list_permissions = format_value(    "List Permissions: ",       "list_permissions",     account.list_permissions,       account.current_list_permissions,    p_manage_perm && (p_admin || permissions.list_permissions()));
+        let manage_permissions = format_value(  "Manage Permissions: ",     "manage_permissions",   account.manage_permissions,     account.current_manage_permissions,  p_manage_perm && (p_admin || permissions.manage_permissions()));
         format!(r#"
 <h2>Permissions:</h2>
 <p>Notice: Without List permissions, Modification permissions are useless. Also, Modification permission imply Delete permissions</p>
