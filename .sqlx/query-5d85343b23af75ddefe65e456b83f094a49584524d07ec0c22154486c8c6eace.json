@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    users.id AS \"id!\",\n    users.email AS \"email!\",\n    domains.name AS \"domain!\"\nFROM users\nJOIN domains ON domains.domain_owner = $1\nWHERE users.deleted = false AND users.domain_id = domains.id\n",
+  "query": "\nSELECT\n    users.id AS \"id!\",\n    users.email AS \"email!\",\n    domains.name AS \"domain!\"\nFROM users\nJOIN virtual_domains domains ON $1 = ANY(domains.domain_owner)\nWHERE users.deleted = false AND users.domain_id = domains.id\n",
   "describe": {
     "columns": [
       {
@@ -27,8 +27,8 @@
     "nullable": [
       false,
       false,
-      false
+      true
     ]
   },
-  "hash": "9a6f2dfd4c91d67fdca5203da2f8195c8ad41c629f315132bc36437173fe56db"
+  "hash": "5d85343b23af75ddefe65e456b83f094a49584524d07ec0c22154486c8c6eace"
 }

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    domains.name AS \"name!\",\n    super_domains.name AS \"super_domain!\"\nFROM domains\nJOIN virtual_domains super_domains ON domains.super = super_domains.id\nWHERE domains.id = $1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "super_domain!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "1d52992031af93cdb62add2459a561836fefe978dfdb949b2802b176f86a8a70"
+}

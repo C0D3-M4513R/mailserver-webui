@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE virtual_users users SET password = $2, dovecot_type='{ARGON2ID}' WHERE id = $1\n    AND CASE WHEN users.id = $3 THEN\n        CASE WHEN (SELECT user_permission.self_change_password FROM user_permission WHERE user_permission.id = users.id) = false THEN false ELSE true END\n        ELSE\n            (SELECT ($3 = ANY(domains.domain_owner)) FROM virtual_domains domains WHERE domains.id = users.domain_id) = true OR\n            (SELECT (perms.admin OR perms.modify_accounts) FROM flattened_web_domain_permissions perms WHERE perms.domain_id = users.domain_id AND perms.user_id = users.id)\n     END\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bcb62af916b702c57d9f1b92aea00aa0eae62e11aef40ff96d26995c38faef5e"
+}
