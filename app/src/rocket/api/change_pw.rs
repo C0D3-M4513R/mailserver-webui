@@ -1,8 +1,10 @@
 use std::borrow::Cow;
+use rocket::http::CookieJar;
 use super::super::auth::check_password::{check_password, Error as CheckPasswordError};
-use crate::rocket::messages::{DATABASE_TRANSACTION_ERROR, INCORRECT_PASSWORD, SELF_CHANGE_PASSWORD_ERROR, SELF_CHANGE_PASSWORD_NO_PERM};
+use crate::rocket::messages::{DATABASE_TRANSACTION_ERROR, GET_PERMISSION_ERROR, INCORRECT_PASSWORD, SELF_CHANGE_PASSWORD_ERROR, SELF_CHANGE_PASSWORD_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
+use crate::rocket::content::admin::domain::template;
 use super::super::content::change_pw::{HEAD, FORM, TAIL};
 
 mod private {
@@ -15,11 +17,22 @@ mod private {
 }
 
 #[rocket::put("/admin/change_pw", data = "<data>")]
-pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::Form<private::ChangePw>) -> Return {
-    let session = match session {
+pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::Form<private::ChangePw>, cookie_jar: &'_ CookieJar<'_>) -> Return {
+    let mut session = match session {
         None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
         Some(v) => v,
     };
+
+    match session.refresh_permissions(cookie_jar).await{
+        Ok(()) => {},
+        Err(err) => {
+            log::error!("Error refreshing permissions: {err}");
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(const_format::concatcp!(HEAD,GET_PERMISSION_ERROR, TAIL)),
+            }));
+        }
+    }
 
     if !session.get_self_change_password() {
         return Return::Content((rocket::http::Status::Forbidden, TypedContent {
