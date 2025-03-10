@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    users.email AS \"email!\",\n    COALESCE(user_perm.self_change_password, true) AS \"self_change_password!\",\n    target_perms.admin,\n    target_perms.view_domain,\n    target_perms.list_subdomain,\n    target_perms.create_subdomain,\n    target_perms.delete_subdomain,\n    target_perms.list_accounts,\n    target_perms.create_accounts,\n    target_perms.modify_accounts,\n    target_perms.delete_accounts,\n    target_perms.create_alias,\n    target_perms.modify_alias,\n    target_perms.list_permissions,\n    target_perms.manage_permissions\nFROM virtual_users users\nLEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2\nLEFT JOIN user_permission user_perm ON users.id = user_perm.id\nWHERE users.id = $1\n",
+  "query": "\nSELECT\n    users.email AS \"email!\",\n    COALESCE(user_perm.self_change_password, true) AS \"self_change_password!\",\n    target_perms.admin,\n    target_perms.view_domain,\n    target_perms.modify_domain,\n    target_perms.list_subdomain,\n    target_perms.create_subdomain,\n    target_perms.delete_subdomain,\n    target_perms.list_accounts,\n    target_perms.create_accounts,\n    target_perms.modify_accounts,\n    target_perms.delete_accounts,\n    target_perms.create_alias,\n    target_perms.modify_alias,\n    target_perms.list_permissions,\n    target_perms.manage_permissions\nFROM virtual_users users\nLEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = $2\nLEFT JOIN user_permission user_perm ON users.id = user_perm.id\nWHERE users.id = $1\n",
   "describe": {
     "columns": [
       {
@@ -25,56 +25,61 @@
       },
       {
         "ordinal": 4,
-        "name": "list_subdomain",
+        "name": "modify_domain",
         "type_info": "Bool"
       },
       {
         "ordinal": 5,
-        "name": "create_subdomain",
+        "name": "list_subdomain",
         "type_info": "Bool"
       },
       {
         "ordinal": 6,
-        "name": "delete_subdomain",
+        "name": "create_subdomain",
         "type_info": "Bool"
       },
       {
         "ordinal": 7,
-        "name": "list_accounts",
+        "name": "delete_subdomain",
         "type_info": "Bool"
       },
       {
         "ordinal": 8,
-        "name": "create_accounts",
+        "name": "list_accounts",
         "type_info": "Bool"
       },
       {
         "ordinal": 9,
-        "name": "modify_accounts",
+        "name": "create_accounts",
         "type_info": "Bool"
       },
       {
         "ordinal": 10,
-        "name": "delete_accounts",
+        "name": "modify_accounts",
         "type_info": "Bool"
       },
       {
         "ordinal": 11,
-        "name": "create_alias",
+        "name": "delete_accounts",
         "type_info": "Bool"
       },
       {
         "ordinal": 12,
-        "name": "modify_alias",
+        "name": "create_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 13,
-        "name": "list_permissions",
+        "name": "modify_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 14,
+        "name": "list_permissions",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
         "name": "manage_permissions",
         "type_info": "Bool"
       }
@@ -100,8 +105,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "6a672124366a9a546e59d9842f0a9213201ff9b0855b7300f8dd832e6fdb6dea"
+  "hash": "0af3dd624708a05e8b3ac70dbedc56f1b9021931a08b1d018b442612c1df9c2b"
 }
