@@ -44,7 +44,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
         None => return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, r#"<div class="error">The provided email didn't include an @ sign</div>"#, TAIL))),
         Some(v) => v,
     };
-    #[cfg(debug_assertions)]
+
     log::debug!("username: {username}, domain: {domain}");
 
     let mysql = crate::get_mysql().await;
@@ -62,14 +62,14 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
         .await
     {
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::debug!("error getting email account: {err}");
             return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))
         }
         Ok(out) => {
             match super::check_password(out.id, out.id, login.password, None).await {
                 Err(super::AuthError::VerifyPassword(err)) => {
-                    #[cfg(debug_assertions)]
+
                     log::debug!("Password incorrect: {err}");
                     return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))
                 }
@@ -78,7 +78,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
                     return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, DATABASE_TRANSACTION_ERROR, TAIL)))
                 }
                 Err(err) => {
-                    #[cfg(debug_assertions)]
+
                     log::debug!("Error checking password: {err}");
                     return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, OTHER_PASSWORD_ISSUE, TAIL)))
                 }
@@ -93,7 +93,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
     ).await {
         Ok(v) => v,
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::error!("Error creating session: {err}");
             return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, GET_PERMISSION_ERROR, TAIL)))
         }
@@ -102,7 +102,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
     let cookie = match session.get_cookie() {
         Ok(v) => v,
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::error!("Error creating cookie: {err}");
             return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, r#"<div class="error">An error occurred while creating the session cookie. Please try again later.</div>"#, TAIL)))
         }

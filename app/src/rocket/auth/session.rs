@@ -19,7 +19,7 @@ impl Session{
             Ok(v) => cookies.add_private(v),
             Err(err) => {
                 Self::remove_cookie(cookies);
-                #[cfg(debug_assertions)]
+
                 log::error!("Error creating cookie: {err}");
                 anyhow::bail!("Error creating cookie: {err}");
             }
@@ -39,7 +39,7 @@ impl Session{
         let json = match serde_json::to_vec(&self) {
             Ok(v) => v,
             Err(err) => {
-                #[cfg(debug_assertions)]
+
                 log::error!("Error serializing cookie: {err}");
                 anyhow::bail!("Error serializing cookie: {err}");
             }
@@ -51,7 +51,7 @@ impl Session{
         {
             Ok(_) => {},
             Err(err) => {
-                #[cfg(debug_assertions)]
+
                 log::error!("Error compressing cookie: {err}");
                 anyhow::bail!("Error compressing cookie: {err}");
             },
@@ -83,7 +83,7 @@ impl<'r> rocket::request::FromRequest<'r> for Session{
             let bytes = match base64::engine::general_purpose::URL_SAFE.decode(cookie.value().as_bytes()) {
                 Ok(v) => v,
                 Err(err) => {
-                    #[cfg(debug_assertions)]
+
                     log::error!("Error decoding cookie from base64: {err}");
                     request.cookies().remove_private(cookie);
                     return Outcome::Forward(rocket::http::Status::Ok);
@@ -93,7 +93,7 @@ impl<'r> rocket::request::FromRequest<'r> for Session{
             match flate2::bufread::GzDecoder::new(bytes.as_slice()).read_to_end(&mut out) {
                  Ok(_) => {},
                  Err(err) => {
-                    #[cfg(debug_assertions)]
+
                     log::error!("Error decompressing cookie: {err}");
                     request.cookies().remove_private(cookie);
                     return Outcome::Forward(rocket::http::Status::Ok);
@@ -103,7 +103,7 @@ impl<'r> rocket::request::FromRequest<'r> for Session{
             match serde_json::from_slice(out.as_slice()) {
                 Ok(v) => v,
                 Err(err) => {
-                    #[cfg(debug_assertions)]
+
                     log::error!("Error deserializing cookie: {err}, {out:?}");
                     request.cookies().remove_private(cookie);
                     return Outcome::Forward(rocket::http::Status::Ok);

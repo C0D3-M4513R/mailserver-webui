@@ -5,7 +5,7 @@ pub async fn post_refresh_session(mut session: super::super::Session, cookies: &
     match session.refresh_permissions(cookies).await {
         Ok(()) => {},
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::error!("Error whilst refreshing session: {err}");
             return Err(rocket::response::Redirect::to(rocket::uri!("/")));
         }

@@ -53,7 +53,7 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
             content: Cow::Borrowed(const_format::concatcp!(HEAD, r#"<div class="success">The password was changed successfully</div>"#, FORM, TAIL))
         })),
         Err(CheckPasswordError::VerifyPassword(err)) => {
-            #[cfg(debug_assertions)]
+
             log::debug!("Password incorrect: {err}");
             Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
@@ -68,7 +68,7 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
             }))
         }
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::debug!("Error changing password: {err}");
             Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,

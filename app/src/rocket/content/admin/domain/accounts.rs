@@ -58,7 +58,7 @@ WHERE users.domain_id = $1"#, permissions.domain_id())
             format!(r#"<tr><td><input class="account-select" type="checkbox" name="accounts[{id}]"/></td><td>{full_email}</td><td>{modify}</td></tr>"#)
         }).fold(String::new(), |a,b|format!("{a}{b}")),
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::error!("Error fetching accounts: {err}");
             return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,

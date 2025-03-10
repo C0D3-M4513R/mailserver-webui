@@ -64,7 +64,7 @@ WHERE users.id = $1
     {
         Ok(v) => v,
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::error!("Error fetching accounts: {err}");
             return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,

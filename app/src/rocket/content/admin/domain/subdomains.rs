@@ -56,7 +56,7 @@ WHERE
             Some(format!(r#"<tr><td><input class="domain-select" type="checkbox" name="domains[{id}]"/></td><td>{name}</td><td>{modify}</td></tr>"#))
         }).fold(String::new(), |a,b|format!("{a}{b}")),
         Err(err) => {
-            #[cfg(debug_assertions)]
+
             log::error!("Error fetching accounts: {err}");
             return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
