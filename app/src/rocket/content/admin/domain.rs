@@ -129,7 +129,7 @@ SELECT
     users.email AS "email!",
     domains.name AS "domain!"
 FROM users
-JOIN domains ON domains.domain_owner = $1
+JOIN virtual_domains domains ON $1 = ANY(domains.domain_owner)
 WHERE users.deleted = false AND users.domain_id = domains.id
 "#, session.get_user_id())
             .fetch_all(db)
