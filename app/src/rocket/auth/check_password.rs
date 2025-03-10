@@ -176,6 +176,7 @@ ident!(impl, Algorithms,
 );
 enum Algorithms {
     Argon(argon2::Algorithm),
+    #[allow(dead_code)]
     Bcrypt(super::bcrypt::BcryptAlgorithm),
     #[cfg(feature = "sha-crypt")] Sha512,
     #[cfg(feature = "sha-crypt")] Sha256
