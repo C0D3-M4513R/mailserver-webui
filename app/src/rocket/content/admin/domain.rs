@@ -101,7 +101,7 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
     let manage_domain = if permissions.admin() || permissions.modify_domain() {
         let name = match sqlx::query!(r#"
 SELECT
-    domains.name AS "name!"
+    domains.name AS "name!",
     super_domains.name AS "super_domain!"
 FROM domains
 JOIN virtual_domains super_domains ON domains.super = super_domains.id
@@ -119,8 +119,8 @@ WHERE domains.id = $1
             },
             Ok(v) => v
         };
-        let name = name.name;
         let super_domain = name.super_domain;
+        let name = name.name;
         format!(r#"
     <form method="POST" action="./name">
         <input type="hidden" name="_method" value="PUT" />

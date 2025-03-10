@@ -4,7 +4,6 @@ use super::super::auth::check_password::{check_password, Error as CheckPasswordE
 use crate::rocket::messages::{DATABASE_TRANSACTION_ERROR, GET_PERMISSION_ERROR, INCORRECT_PASSWORD, SELF_CHANGE_PASSWORD_ERROR, SELF_CHANGE_PASSWORD_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
-use crate::rocket::content::admin::domain::template;
 use super::super::content::change_pw::{HEAD, FORM, TAIL};
 
 mod private {
@@ -29,7 +28,7 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
             log::error!("Error refreshing permissions: {err}");
             return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(const_format::concatcp!(HEAD,GET_PERMISSION_ERROR, TAIL)),
+                content: Cow::Borrowed(const_format::concatcp!(HEAD,GET_PERMISSION_ERROR, TAIL)),
             }));
         }
     }
