@@ -44,8 +44,8 @@ SELECT
 FROM virtual_domains domains
 JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id
 WHERE
-    (permissions.view_domain OR permissions.admin) AND
-    domains.super = $1 AND permissions.user_id = $2"#, permissions.domain_id(), session.get_user_id())
+    ( $2 = ANY(domains.domain_owner)  OR permissions.view_domain OR permissions.admin) AND
+    $1 = ANY(domains.super) AND permissions.user_id = $2"#, permissions.domain_id(), session.get_user_id())
         .fetch_all(db)
         .await
     {
@@ -85,7 +85,7 @@ WHERE
     {header}
 <div id="subdomain-mod-error">{error}</div>
 {new_subdomain}
-<h2>Existing Accounts:</h2>
+<h2>Existing Subdomains:</h2>
 <form method="POST">
 <input type="hidden" name="_method" value="DELETE" />
 <input type="submit" value="Delete Selected Subdomains" />
