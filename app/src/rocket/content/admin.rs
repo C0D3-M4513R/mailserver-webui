@@ -30,6 +30,8 @@ pub async fn admin_get(session: Option<Session>) -> Return {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="light dark">
     <title>Admin</title>
 </head>
 <body>

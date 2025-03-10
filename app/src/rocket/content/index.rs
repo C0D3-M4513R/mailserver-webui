@@ -3,6 +3,8 @@ use super::super::messages::{DATABASE_TRANSACTION_ERROR, GET_PERMISSION_ERROR, I
 const HEAD:&str = r#"<!Doctype html>
 <html lang="en">
     <head>
+        <meta charset="utf-8">
+        <meta name="color-scheme" content="light dark">
         <title>Mailserver Admin</title>
     </head>
     <body>

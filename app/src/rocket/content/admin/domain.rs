@@ -20,6 +20,8 @@ pub(in crate::rocket) fn template(domain: &str, content: impl Display) -> String
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="light dark">
     <title>{domain}'s Mail-Admin-Panel</title>
 </head>
 <body>
@@ -202,23 +204,12 @@ FROM owner_domains
     let header = domain_linklist(&session, domain);
     Return::Content((rocket::http::Status::Ok, TypedContent{
         content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(format!(r#"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>{domain}'s Mail-Admin-Panel</title>
-</head>
-<body>
-    <h1>{domain}'s Mail-Admin-Panel</h1>
-    {HEADER}
-    <p>Welcome to the admin page</p>
-    {header}
-    <h2>Manage Domain:</h2>
-    {manage_domain}
-    {owner}
-</body>
-</html>
-        "#)),
+        content: Cow::Owned(template(domain, format!(r#"
+{header}
+<h2>Manage Domain:</h2>
+{manage_domain}
+{owner}
+        "#))),
     }))
 }
 pub(in crate::rocket) fn unauth_error(domain: &str) -> String {
