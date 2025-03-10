@@ -154,10 +154,10 @@ WITH owner_domains AS (
     users.id AS "id!",
     users.email AS "email!",
     domains.name AS "domain!",
-    (users.id = domains.domain_owner) as "true_owner!"
+    (users.id = domains.domain_owner[1]) as "true_owner!"
 FROM owner_domains
     JOIN virtual_users users ON users.domain_id = owner_domains.id
-    JOIN domains ON $2 = domains.id
+    JOIN flattened_domains domains ON $2 = domains.id
 "#, session.get_user_id(), permissions.domain_id())
             .fetch_all(db)
             .await
@@ -173,7 +173,7 @@ FROM owner_domains
                 v.into_iter().map(|v|{
                     let id = v.id;
                     let domain = v.domain;
-                    let selected = if id == session.get_user_id() {
+                    let selected = if v.true_owner {
                         r#"selected="selected""#
                     } else {""};
                     let email = v.email;
