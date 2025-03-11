@@ -124,7 +124,7 @@ WHERE domains.id = $1
         let super_domain = name.super_domain;
         let name = name.name;
         format!(r#"
-    <form method="POST" action="./name">
+    <form method="POST" action="{domain}/name">
         <input type="hidden" name="_method" value="PUT" />
         <label>New Name:<a><input type="text" name="name" value="{name}"/>.{super_domain}</a></label>
         <input type="submit" value="Rename Domain"/>
@@ -138,7 +138,7 @@ WHERE domains.id = $1
         let domain_accepts_email = if permissions.domain_accepts_email() { "checked" } else {""};
         let view_only = if !permissions.admin() && !permissions.modify_domain() { "disabled" } else {""};
         format!(r#"
-<form method="POST" action="./accepts_email">
+<form method="POST" action="{domain}/accepts_email">
     <input type="hidden" name="_method" value="PUT" />
     <label>Accepts Email: <input type="checkbox" name="accepts_email" {domain_accepts_email} {view_only}/></label>
     <input type="submit" value="Update Accepts Email" {view_only}/>
@@ -187,7 +187,7 @@ FROM owner_domains
         if !accounts.is_empty() {
             format!(r#"
 <h2>Change Owner:</h2>
-    <form action="./owner" method="POST">
+    <form action="{domain}/owner" method="POST">
     <input type="hidden" name="_method" value="PUT" />
     <select name="owner">
         {accounts}
