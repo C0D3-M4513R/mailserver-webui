@@ -54,6 +54,7 @@ pub async fn admin_domain_subdomains_put(session: Option<Session>, domain: &'_ s
             return result;
         }
     };
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/subdomains")))
 }
