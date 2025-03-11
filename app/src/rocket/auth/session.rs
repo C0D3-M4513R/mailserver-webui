@@ -14,7 +14,10 @@ pub struct Session {
 
 impl Session{
     pub async fn refresh_permissions(&mut self, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
-        let session = Self::new(self.user_id, self.self_change_password).await?;
+        let v = sqlx::query!(r#"SELECT self_change_password AS "self_change_password!" FROM virtual_user_permission WHERE id = $1"#, self.user_id)
+            .fetch_one(crate::get_mysql().await).await?;
+        let self_change_password = v.self_change_password;
+        let session = Self::new(self.user_id, self_change_password).await?;
         match session.get_cookie() {
             Ok(v) => cookies.add_private(v),
             Err(err) => {
@@ -117,7 +120,7 @@ impl<'r> rocket::request::FromRequest<'r> for Session{
 pub const HEADER:&str = const_format::formatcp!(
     r#"
         {LOGOUT}
-        <form action="/admin/refresh_session" method="POST" onsubmit="() => location.reload()">
+        <form action="/admin/refresh_session" method="POST">
             <input type="submit" value="Refresh Permissions"></input>
         </form>
         <a href="/admin/change_pw">Change Password</a>
