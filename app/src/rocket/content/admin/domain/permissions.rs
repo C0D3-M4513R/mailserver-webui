@@ -42,26 +42,26 @@ SELECT
     user_domain.name as "name!",
     users.email as "email!",
     users.id as "id!",
-    flat_perms.is_owner as "is_owner!",
-    perms.admin, flat_perms.admin as "current_admin!",
-    perms.view_domain, flat_perms.view_domain as "current_view_domain!",
-    perms.modify_domain, flat_perms.modify_domain as "current_modify_domain!",
-    perms.list_subdomain, flat_perms.list_subdomain as "current_list_subdomain!",
-    perms.create_subdomain, flat_perms.create_subdomain as "current_create_subdomain!",
-    perms.delete_subdomain, flat_perms.delete_subdomain as "current_delete_subdomain!",
-    perms.list_accounts, flat_perms.list_accounts as "current_list_accounts!",
-    perms.create_accounts, flat_perms.create_accounts as "current_create_accounts!",
-    perms.modify_accounts, flat_perms.modify_accounts as "current_modify_accounts!",
-    perms.delete_accounts, flat_perms.delete_accounts as "current_delete_accounts!",
-    perms.create_alias, flat_perms.create_alias as "current_create_alias!",
-    perms.modify_alias, flat_perms.modify_alias as "current_modify_alias!",
-    perms.list_permissions, flat_perms.list_permissions as "current_list_permissions!",
-    perms.manage_permissions, flat_perms.manage_permissions as "current_manage_permissions!"
+    users.id = ANY(domains.super) as "is_owner!",
+    perms.admin, COALESCE(flat_perms.admin, false) as "current_admin!",
+    perms.view_domain, COALESCE(flat_perms.view_domain, false) as "current_view_domain!",
+    perms.modify_domain, COALESCE(flat_perms.modify_domain, false) as "current_modify_domain!",
+    perms.list_subdomain, COALESCE(flat_perms.list_subdomain, false) as "current_list_subdomain!",
+    perms.create_subdomain, COALESCE(flat_perms.create_subdomain, false) as "current_create_subdomain!",
+    perms.delete_subdomain, COALESCE(flat_perms.delete_subdomain, false) as "current_delete_subdomain!",
+    perms.list_accounts, COALESCE(flat_perms.list_accounts, false) as "current_list_accounts!",
+    perms.create_accounts, COALESCE(flat_perms.create_accounts, false) as "current_create_accounts!",
+    perms.modify_accounts, COALESCE(flat_perms.modify_accounts, false) as "current_modify_accounts!",
+    perms.delete_accounts, COALESCE(flat_perms.delete_accounts, false) as "current_delete_accounts!",
+    perms.create_alias, COALESCE(flat_perms.create_alias, false) as "current_create_alias!",
+    perms.modify_alias, COALESCE(flat_perms.modify_alias, false) as "current_modify_alias!",
+    perms.list_permissions, COALESCE(flat_perms.list_permissions, false) as "current_list_permissions!",
+    perms.manage_permissions, COALESCE(flat_perms.manage_permissions, false) as "current_manage_permissions!"
 FROM virtual_domains domains
-JOIN virtual_users users ON users.domain_id = domains.id OR users.domain_id = ANY(domains.super)
-JOIN virtual_domains user_domain ON users.domain_id = user_domain.id
-LEFT JOIN web_domain_permissions perms ON perms.domain_id = domains.id AND perms.user_id = users.id
-JOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = domains.id AND flat_perms.user_id = users.id
+    JOIN virtual_users users ON users.domain_id = domains.id OR users.domain_id = ANY(domains.super)
+    JOIN virtual_domains user_domain ON users.domain_id = user_domain.id
+    LEFT JOIN web_domain_permissions perms ON perms.domain_id = domains.id AND perms.user_id = users.id
+    LEFT JOIN flattened_web_domain_permissions flat_perms ON cardinality(domains.super) = 0 AND flat_perms.domain_id = domains.super[1] AND flat_perms.user_id = users.id
 WHERE domains.id = $1"#, permissions.domain_id())
         .fetch_all(db)
         .await
