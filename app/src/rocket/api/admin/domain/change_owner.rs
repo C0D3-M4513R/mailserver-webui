@@ -60,5 +60,5 @@ WHERE
         }
     };
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/view")))
+    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}")))
 }

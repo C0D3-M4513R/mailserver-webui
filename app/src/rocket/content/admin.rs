@@ -21,7 +21,7 @@ pub async fn admin_get(session: Option<Session>) -> Return {
         if !permissions.admin() && !permissions.view_domain() {
             continue;
         }
-        domain_list.push_str(&format!(r#"<li><a href="/admin/{domain}/view">{domain}</a></li>"#));
+        domain_list.push_str(&format!(r#"<li><a href="/admin/{domain}">{domain}</a></li>"#));
     }
 
     Return::Content((rocket::http::Status::Ok, TypedContent{

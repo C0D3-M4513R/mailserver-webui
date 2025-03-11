@@ -69,7 +69,7 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
         r#"
             <div class="header">
                 <a href="/admin">Back to Main-Panel</a>
-                <a href="/admin/{domain}/view">Domain Main Overview</a>
+                <a href="/admin/{domain}">Domain Main Overview</a>
                 {accounts}
                 {permissions}
                 {subdomain}
@@ -77,7 +77,7 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
         "#
     )
 }
-#[rocket::get("/admin/<domain>/view")]
+#[rocket::get("/admin/<domain>")]
 pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return {
     let session = match session {
         None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),

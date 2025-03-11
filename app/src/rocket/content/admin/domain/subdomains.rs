@@ -52,7 +52,7 @@ WHERE
         Ok(v) => v.into_iter().filter_map(|v|{
             let id = v.id;
             let name = v.name;
-            let modify = format!(r#"<a href="/admin/{name}/view">Modify</a>"#);
+            let modify = format!(r#"<a href="/admin/{name}">Modify</a>"#);
             Some(format!(r#"<tr><td><input class="domain-select" type="checkbox" name="domains[{id}]"/></td><td>{name}</td><td>{modify}</td></tr>"#))
         }).fold(String::new(), |a,b|format!("{a}{b}")),
         Err(err) => {
