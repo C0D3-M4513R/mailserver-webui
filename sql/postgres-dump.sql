@@ -17,6 +17,44 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: mailserver; Type: DATABASE; Schema: -; Owner: postgres
+--
+
+CREATE DATABASE mailserver WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'en_US.UTF-8';
+
+
+ALTER DATABASE mailserver OWNER TO postgres;
+
+\connect mailserver
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: pg_database_owner
+--
+
+CREATE SCHEMA public;
+
+
+ALTER SCHEMA public OWNER TO pg_database_owner;
+
+--
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: pg_database_owner
+--
+
+COMMENT ON SCHEMA public IS 'standard public schema';
+
+
+--
 -- Name: mark_deleted(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -49,7 +87,9 @@ CREATE TABLE public.domains (
     id bigint NOT NULL,
     name text NOT NULL,
     super bigint DEFAULT 0 NOT NULL,
-    deleted boolean DEFAULT false NOT NULL
+    deleted boolean DEFAULT false NOT NULL,
+    domain_owner bigint DEFAULT 1,
+    accepts_email boolean DEFAULT true NOT NULL
 );
 
 
@@ -68,6 +108,50 @@ ALTER TABLE public.domains ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     CACHE 1
 );
 
+
+--
+-- Name: flattened_domains; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.flattened_domains AS
+ WITH RECURSIVE test AS (
+         SELECT domains.id,
+            (0)::bigint AS level,
+                CASE
+                    WHEN (domains.name = '.'::text) THEN 'root'::text
+                    ELSE domains.name
+                END AS name,
+            domains.deleted,
+            ARRAY[]::bigint[] AS super,
+            ARRAY[domains.domain_owner] AS domain_owner,
+            domains.accepts_email
+           FROM public.domains
+          WHERE (domains.id = domains.super)
+        UNION ALL
+         SELECT domains.id,
+            (test_1.level + 1),
+                CASE
+                    WHEN (cardinality(test_1.super) = 0) THEN domains.name
+                    ELSE concat(domains.name, '.', test_1.name)
+                END AS concat,
+            (test_1.deleted OR domains.deleted),
+            array_prepend(domains.super, test_1.super) AS array_prepend,
+            array_prepend(domains.domain_owner, test_1.domain_owner) AS array_prepend,
+            domains.accepts_email
+           FROM (test test_1
+             JOIN public.domains ON (((domains.super = test_1.id) AND (domains.id <> test_1.id))))
+        )
+ SELECT id,
+    name,
+    deleted,
+    super,
+    domain_owner,
+    accepts_email,
+    level
+   FROM test;
+
+
+ALTER VIEW public.flattened_domains OWNER TO postgres;
 
 --
 -- Name: system_config; Type: VIEW; Schema: public; Owner: postgres
@@ -103,47 +187,21 @@ ALTER TABLE public.users OWNER TO postgres;
 --
 
 CREATE VIEW public.dovecot_users AS
- SELECT concat(users.email, '@', domains.name) AS username,
+ SELECT users.id,
+    concat(users.email, '@', domains.name) AS username,
     concat(users.dovecot_type, users.password) AS password,
-    concat('/var/mail/vhosts', domains.id, '/', users.id, '/home') AS home,
+    concat('/var/mail/vhosts/', domains.id, '/', users.id, '/home') AS home,
+    concat('maildir:/var/mail/', domains.id, '/', users.id) AS mail_location,
     concat('*:bytes=', users.quota_limit_bytes) AS quota_rule,
     system_config.uid,
     system_config.gid
    FROM public.system_config,
     (public.users
-     JOIN public.domains ON (((domains.id = users.id) AND (domains.deleted = false))))
+     JOIN public.flattened_domains domains ON (((domains.id = users.domain_id) AND (domains.deleted = false))))
   WHERE (users.deleted = false);
 
 
 ALTER VIEW public.dovecot_users OWNER TO postgres;
-
---
--- Name: flattened_domains; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.flattened_domains AS
- WITH RECURSIVE test AS (
-         SELECT domains.id,
-            domains.name,
-            domains.deleted,
-            domains.super
-           FROM public.domains
-        UNION ALL
-         SELECT domain.id,
-            domain.name,
-            domain.deleted,
-            test_1.super
-           FROM (public.domains domain
-             JOIN test test_1 ON (((domain.super = test_1.id) AND (test_1.id <> test_1.super))))
-        )
- SELECT id,
-    name,
-    deleted,
-    super
-   FROM test;
-
-
-ALTER VIEW public.flattened_domains OWNER TO postgres;
 
 --
 -- Name: web_domain_permissions; Type: TABLE; Schema: public; Owner: postgres
@@ -164,7 +222,8 @@ CREATE TABLE public.web_domain_permissions (
     list_permissions boolean,
     manage_permissions boolean,
     list_subdomain boolean,
-    delete_accounts boolean
+    delete_accounts boolean,
+    modify_domain boolean
 );
 
 
@@ -175,67 +234,144 @@ ALTER TABLE public.web_domain_permissions OWNER TO postgres;
 --
 
 CREATE VIEW public.flattened_web_domain_permissions AS
- WITH RECURSIVE test AS (
-         SELECT perm.user_id,
-            perm.domain_id,
-            domain.name AS domain_name,
-            COALESCE(perm.admin, false) AS admin,
-            COALESCE(perm.view_domain, false) AS view_domain,
-            COALESCE(perm.list_subdomain, false) AS list_subdomain,
-            COALESCE(perm.create_subdomain, false) AS create_subdomain,
-            COALESCE(perm.delete_subdomain, false) AS delete_subdomain,
-            COALESCE(perm.list_accounts, false) AS list_accounts,
-            COALESCE(perm.create_accounts, false) AS create_accounts,
-            COALESCE(perm.modify_accounts, false) AS modify_accounts,
-            COALESCE(perm.delete_accounts, false) AS delete_accounts,
-            COALESCE(perm.create_alias, false) AS create_alias,
-            COALESCE(perm.modify_alias, false) AS modify_alias,
-            COALESCE(perm.list_permissions, false) AS list_permissions,
-            COALESCE(perm.manage_permissions, false) AS manage_permissions
+ SELECT users.id AS user_id,
+    domains.id AS domain_id,
+    domains.name AS domain_name,
+    domains.super AS domain_super,
+    (users.id = ANY (domains.domain_owner)) AS is_owner,
+    (array_append(ARRAY( SELECT perm.admin
            FROM (public.web_domain_permissions perm
-             JOIN public.domains domain ON ((perm.domain_id = domain.id)))
-          WHERE (domain.id = domain.super)
-        UNION ALL
-         SELECT rec.user_id,
-            this_domain.id AS domain_id,
-            this_domain.name AS domain_name,
-            COALESCE(perm.admin, rec.admin, false) AS admin,
-            COALESCE(perm.view_domain, rec.view_domain, false) AS view_domain,
-            COALESCE(perm.list_subdomain, rec.list_subdomain, false) AS list_subdomain,
-            COALESCE(perm.create_subdomain, rec.create_subdomain, false) AS create_subdomain,
-            COALESCE(perm.delete_subdomain, rec.delete_subdomain, false) AS delete_subdomain,
-            COALESCE(perm.list_accounts, rec.list_accounts, false) AS list_accounts,
-            COALESCE(perm.create_accounts, rec.create_accounts, false) AS create_accounts,
-            COALESCE(perm.modify_accounts, rec.modify_accounts, false) AS modify_accounts,
-            COALESCE(perm.delete_accounts, rec.delete_accounts, false) AS delete_accounts,
-            COALESCE(perm.create_alias, rec.create_alias, false) AS create_alias,
-            COALESCE(perm.modify_alias, rec.modify_alias, false) AS modify_alias,
-            COALESCE(perm.list_permissions, rec.list_permissions, false) AS list_permissions,
-            COALESCE(perm.manage_permissions, rec.manage_permissions, false) AS manage_permissions
-           FROM ((test rec
-             JOIN public.domains this_domain ON (((rec.domain_id = this_domain.super) AND (this_domain.super <> this_domain.id))))
-             LEFT JOIN public.web_domain_permissions perm ON (((perm.user_id = rec.user_id) AND (perm.domain_id = this_domain.id))))
-        )
- SELECT user_id,
-    domain_id,
-    domain_name,
-    admin,
-    view_domain,
-    list_subdomain,
-    create_subdomain,
-    delete_subdomain,
-    list_accounts,
-    create_accounts,
-    modify_accounts,
-    delete_accounts,
-    create_alias,
-    modify_alias,
-    list_permissions,
-    manage_permissions
-   FROM test;
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.admin IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS admin,
+    (array_append(ARRAY( SELECT perm.view_domain
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.view_domain IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS view_domain,
+    (array_append(ARRAY( SELECT perm.modify_domain
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.modify_domain IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS modify_domain,
+    (array_append(ARRAY( SELECT perm.list_subdomain
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_subdomain IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS list_subdomain,
+    (array_append(ARRAY( SELECT perm.create_subdomain
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_subdomain IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS create_subdomain,
+    (array_append(ARRAY( SELECT perm.delete_subdomain
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_subdomain IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS delete_subdomain,
+    (array_append(ARRAY( SELECT perm.list_accounts
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_accounts IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS list_accounts,
+    (array_append(ARRAY( SELECT perm.create_accounts
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_accounts IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS create_accounts,
+    (array_append(ARRAY( SELECT perm.modify_accounts
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.modify_accounts IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS modify_accounts,
+    (array_append(ARRAY( SELECT perm.delete_accounts
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_accounts IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS delete_accounts,
+    (array_append(ARRAY( SELECT perm.create_alias
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_alias IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS create_alias,
+    (array_append(ARRAY( SELECT perm.modify_alias
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.modify_alias IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS modify_alias,
+    (array_append(ARRAY( SELECT perm.list_permissions
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_permissions IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS list_permissions,
+    (array_append(ARRAY( SELECT perm.manage_permissions
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.manage_permissions IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS manage_permissions
+   FROM public.flattened_domains domains,
+    public.users;
 
 
 ALTER VIEW public.flattened_web_domain_permissions OWNER TO postgres;
+
+--
+-- Name: virtual_aliases; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.virtual_aliases (
+    id bigint NOT NULL,
+    domain_id bigint NOT NULL,
+    source text NOT NULL,
+    destination bigint NOT NULL
+);
+
+
+ALTER TABLE public.virtual_aliases OWNER TO postgres;
+
+--
+-- Name: virtual_domains; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.virtual_domains AS
+ SELECT id,
+    name,
+    super,
+    domain_owner,
+    accepts_email,
+    level
+   FROM public.flattened_domains
+  WHERE (deleted = false)
+  WITH CASCADED CHECK OPTION;
+
+
+ALTER VIEW public.virtual_domains OWNER TO postgres;
+
+--
+-- Name: postfix_alias; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.postfix_alias AS
+ SELECT concat(alias.source, '@', domains.name) AS alias,
+    users.username AS target
+   FROM ((public.virtual_aliases alias
+     JOIN public.virtual_domains domains ON ((alias.domain_id = domains.id)))
+     JOIN public.dovecot_users users ON ((alias.destination = users.id)));
+
+
+ALTER VIEW public.postfix_alias OWNER TO postgres;
+
+--
+-- Name: postfix_domains; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.postfix_domains AS
+ SELECT name
+   FROM public.flattened_domains
+  WHERE ((accepts_email = true) AND (deleted = false));
+
+
+ALTER VIEW public.postfix_domains OWNER TO postgres;
 
 --
 -- Name: user_permission; Type: TABLE; Schema: public; Owner: postgres
@@ -264,48 +400,32 @@ ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: virtual_aliases; Type: TABLE; Schema: public; Owner: postgres
+-- Name: virtual_aliases_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.virtual_aliases (
-    id bigint NOT NULL,
-    domain_id bigint NOT NULL,
-    source text NOT NULL,
-    destination bigint NOT NULL
+ALTER TABLE public.virtual_aliases ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.virtual_aliases_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
 );
 
 
-ALTER TABLE public.virtual_aliases OWNER TO postgres;
-
 --
--- Name: virtual_domains; Type: VIEW; Schema: public; Owner: postgres
+-- Name: virtual_user_permission; Type: VIEW; Schema: public; Owner: postgres
 --
 
-CREATE VIEW public.virtual_domains AS
- SELECT id,
-    name,
-    super
-   FROM public.domains
-  WHERE (deleted = false)
-  WITH CASCADED CHECK OPTION;
+CREATE VIEW public.virtual_user_permission AS
+ SELECT users.id,
+    users.deleted,
+    COALESCE(user_permission.self_change_password, true) AS self_change_password
+   FROM (public.users
+     LEFT JOIN public.user_permission ON ((users.id = user_permission.id)));
 
 
-ALTER VIEW public.virtual_domains OWNER TO postgres;
-
---
--- Name: virtual_flattened_domains; Type: VIEW; Schema: public; Owner: postgres
---
-
-CREATE VIEW public.virtual_flattened_domains AS
- SELECT id,
-    name,
-    super
-   FROM public.flattened_domains
-  WHERE (deleted = false)
-  WITH CASCADED CHECK OPTION;
-
-
-ALTER VIEW public.virtual_flattened_domains OWNER TO postgres;
+ALTER VIEW public.virtual_user_permission OWNER TO postgres;
 
 --
 -- Name: virtual_users; Type: VIEW; Schema: public; Owner: postgres
@@ -323,50 +443,6 @@ CREATE VIEW public.virtual_users AS
 
 
 ALTER VIEW public.virtual_users OWNER TO postgres;
-
---
--- Data for Name: domains; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
---nope
-
---
--- Data for Name: user_permission; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-
-
---
--- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
---nope
-
---
--- Data for Name: virtual_aliases; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-
-
---
--- Data for Name: web_domain_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
---nope
-
---
--- Name: domains_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.domains_id_seq', 1, false);
-
-
---
--- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.users_id_seq', 14, true);
-
 
 --
 -- Name: user_permission user_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
@@ -445,6 +521,14 @@ CREATE TRIGGER virtual_users_delete INSTEAD OF DELETE ON public.virtual_users FO
 
 
 --
+-- Name: domains domains_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.domains
+    ADD CONSTRAINT domains_users_id_fk FOREIGN KEY (domain_owner) REFERENCES public.users(id);
+
+
+--
 -- Name: user_permission user_permission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -501,10 +585,24 @@ ALTER TABLE ONLY public.web_domain_permissions
 
 
 --
+-- Name: DATABASE mailserver; Type: ACL; Schema: -; Owner: postgres
+--
+
+GRANT CONNECT ON DATABASE mailserver TO mailuser;
+
+
+--
 -- Name: TABLE domains; Type: ACL; Schema: public; Owner: postgres
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.domains TO mailuser;
+
+
+--
+-- Name: TABLE flattened_domains; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT,DELETE ON TABLE public.flattened_domains TO mailuser;
 
 
 --
@@ -518,14 +616,7 @@ GRANT SELECT,INSERT,UPDATE ON TABLE public.users TO mailuser;
 -- Name: TABLE dovecot_users; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT ON TABLE public.dovecot_users TO mailuser;
-
-
---
--- Name: TABLE flattened_domains; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT ON TABLE public.flattened_domains TO mailuser;
+GRANT SELECT,DELETE ON TABLE public.dovecot_users TO mailuser;
 
 
 --
@@ -543,13 +634,6 @@ GRANT SELECT ON TABLE public.flattened_web_domain_permissions TO mailuser;
 
 
 --
--- Name: TABLE user_permission; Type: ACL; Schema: public; Owner: postgres
---
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.user_permission TO mailuser;
-
-
---
 -- Name: TABLE virtual_aliases; Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -560,7 +644,35 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.virtual_aliases TO mailuser;
 -- Name: TABLE virtual_domains; Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.virtual_domains TO mailuser;
+GRANT SELECT,DELETE ON TABLE public.virtual_domains TO mailuser;
+
+
+--
+-- Name: TABLE postfix_alias; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT ON TABLE public.postfix_alias TO mailuser;
+
+
+--
+-- Name: TABLE postfix_domains; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT,DELETE ON TABLE public.postfix_domains TO mailuser;
+
+
+--
+-- Name: TABLE user_permission; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE public.user_permission TO mailuser;
+
+
+--
+-- Name: TABLE virtual_user_permission; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT ON TABLE public.virtual_user_permission TO mailuser;
 
 
 --
