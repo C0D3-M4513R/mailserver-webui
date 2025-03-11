@@ -1,7 +1,8 @@
 mod rocket;
 
 const SPECIAL_ROOT_DOMAIN_NAME:&str = "root";
-
+const WEBMAIL_DOMAIN:&str = "https://webmail.c0d3m4513r.com";
+const MAIL_DOMAIN:&str = "mail.c0d3m4513r.com";
 pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
     static MYSQL: tokio::sync::OnceCell<sqlx::postgres::PgPool> = tokio::sync::OnceCell::const_new();
     MYSQL.get_or_init(||async {

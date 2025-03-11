@@ -2,6 +2,7 @@ use std::io::Read;
 use base64::Engine;
 use rocket::Request;
 use rocket::request::Outcome;
+use crate::WEBMAIL_DOMAIN;
 
 pub use crate::rocket::auth::permissions::Permission;
 
@@ -137,6 +138,7 @@ pub const HEADER:&str = const_format::formatcp!(
             <input type="submit" value="Refresh Permissions"></input>
         </form>
         <a href="/admin/change_pw">Change Password</a>
+        <a href="{WEBMAIL_DOMAIN}">Webmail</a>
     "#,
 );
 

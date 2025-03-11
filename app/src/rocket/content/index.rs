@@ -1,6 +1,8 @@
+use crate::rocket::content::email_settings::SETTINGS;
 use super::super::messages::{DATABASE_TRANSACTION_ERROR, GET_PERMISSION_ERROR, INCORRECT_PASSWORD, OTHER_PASSWORD_ISSUE};
+use crate::WEBMAIL_DOMAIN;
 
-const HEAD:&str = r#"<!Doctype html>
+const HEAD:&str = const_format::formatcp!(r#"<!Doctype html>
 <html lang="en">
     <head>
         <meta charset="utf-8">
@@ -8,12 +10,16 @@ const HEAD:&str = r#"<!Doctype html>
         <title>Mailserver Admin</title>
     </head>
     <body>
-        <h1>Mailserver Admin</h1>"#;
-const TAIL:&str = r#"        <form method="POST">
+        <h1>Mailserver Admin</h1>
+                <a href="{WEBMAIL_DOMAIN}">Webmail</a>
+"#);
+const CONTENT:&str = r#"        <form method="POST">
             <label>E-Mail: <input type="email" name="email"/></label>
             <label>Password: <input type="password" name="password"/></label>
             <label>Submit: <input type="submit"/></label>
         </form>
+"#;
+const TAIL:&str = r#"
     </body>
 </html>"#;
 
@@ -21,7 +27,7 @@ const TAIL:&str = r#"        <form method="POST">
 #[rocket::get("/")]
 pub fn index_get(session: Option<super::Session>) -> private::IndexPostReturn {
     match session {
-        None => private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, TAIL))),
+        None => private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, CONTENT, SETTINGS, TAIL))),
         Some(_) => private::IndexPostReturn::Redirect(rocket::response::Redirect::to(rocket::uri!("/admin")))
     }
 }
@@ -51,7 +57,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
 
     let mysql = crate::get_mysql().await;
 
-    const ERROR:&str = const_format::concatcp!(HEAD, INCORRECT_PASSWORD, TAIL);
+    const ERROR:&str = const_format::concatcp!(HEAD, INCORRECT_PASSWORD, CONTENT, SETTINGS, TAIL);
     let (user_id, self_change_pw) = match sqlx::query!(r#"
     SELECT
         users.id as "id!",
@@ -82,7 +88,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
                 Err(err) => {
 
                     log::debug!("Error checking password: {err}");
-                    return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, OTHER_PASSWORD_ISSUE, TAIL)))
+                    return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, OTHER_PASSWORD_ISSUE, CONTENT, SETTINGS, TAIL)))
                 }
                 Ok(()) => (out.id, out.self_change_pw),
             }
@@ -98,7 +104,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
         Err(err) => {
 
             log::error!("Error creating session: {err}");
-            return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, GET_PERMISSION_ERROR, TAIL)))
+            return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, GET_PERMISSION_ERROR, CONTENT, SETTINGS, TAIL)))
         }
     };
 
@@ -107,7 +113,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
         Err(err) => {
 
             log::error!("Error creating cookie: {err}");
-            return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, r#"<div class="error">An error occurred while creating the session cookie. Please try again later.</div>"#, TAIL)))
+            return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, r#"<div class="error">An error occurred while creating the session cookie. Please try again later.</div>"#, CONTENT, SETTINGS, TAIL)))
         }
     };
     cookies.add_private(cookie);

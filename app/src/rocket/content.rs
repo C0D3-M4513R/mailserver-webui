@@ -4,6 +4,7 @@ use super::auth::check_password::{check_password, Error as AuthError};
 pub mod index;
 pub mod admin;
 pub mod change_pw;
+mod email_settings;
 
 pub use index::{index_post, index_get};
 pub use admin::{

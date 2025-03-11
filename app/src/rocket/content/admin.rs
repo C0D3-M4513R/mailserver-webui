@@ -4,6 +4,7 @@ pub use domain::{admin_domain_get, admin_domain_accounts_get, admin_domain_accou
 
 use super::{Return, TypedContent, Session, SESSION_HEADER};
 use std::borrow::Cow;
+use crate::rocket::content::email_settings::SETTINGS;
 
 #[rocket::get("/admin")]
 pub async fn admin_get(session: Option<Session>) -> Return {
@@ -41,6 +42,7 @@ pub async fn admin_get(session: Option<Session>) -> Return {
     <p>Welcome to the admin page</p>
     <p>Managable Domains:</p>
     <ul>{domain_list}</ul>
+    {SETTINGS}
 </body>
 </html>
         "#))
