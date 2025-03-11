@@ -11,13 +11,26 @@ pub struct Session {
     pub(super) self_change_password: bool,
     pub(super) permissions: std::collections::HashMap<String, Permission>,
 }
-
+macro_rules! refresh_permission {
+    ($ident:ident, $cookie_jar:ident, $domain:ident, $pool:ident) => {
+    match $ident.refresh_permissions($pool, $cookie_jar).await {
+        Ok(()) => {},
+        Err(err) => {
+            log::error!("Error refreshing permissions: {err}");
+            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(template($domain, crate::rocket::messages::GET_PERMISSION_ERROR)),
+            }));
+        }
+    }};
+}
+pub(in crate::rocket) use refresh_permission;
 impl Session{
-    pub async fn refresh_permissions(&mut self, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
+    pub async fn refresh_permissions(&mut self, pool:&sqlx::postgres::PgPool, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
         let v = sqlx::query!(r#"SELECT self_change_password AS "self_change_password!" FROM virtual_user_permission WHERE id = $1"#, self.user_id)
-            .fetch_one(crate::get_mysql().await).await?;
+            .fetch_one(pool).await?;
         let self_change_password = v.self_change_password;
-        let session = Self::new(self.user_id, self_change_password).await?;
+        let session = Self::new(self.user_id, self_change_password, pool).await?;
         match session.get_cookie() {
             Ok(v) => cookies.add_private(v),
             Err(err) => {

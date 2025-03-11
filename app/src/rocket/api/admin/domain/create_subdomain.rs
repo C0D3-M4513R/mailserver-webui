@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use rocket::http::CookieJar;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
-use crate::rocket::messages::{SUBDOMAIN_INVALID_CHARS, CREATE_SUBDOMAIN_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
+use crate::rocket::messages::{SUBDOMAIN_INVALID_CHARS, CREATE_SUBDOMAIN_NO_PERM, DATABASE_ERROR};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::Session;
+use crate::rocket::auth::session::{refresh_permission, Session};
 
 mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
@@ -23,16 +23,8 @@ pub async fn admin_domain_subdomains_put(session: Option<Session>, domain: &'_ s
         None => return unauth_error,
         Some(v) => v,
     };
-    match session.refresh_permissions(cookie_jar).await {
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -52,8 +44,8 @@ pub async fn admin_domain_subdomains_put(session: Option<Session>, domain: &'_ s
         }));
     }
 
-    let db = crate::get_mysql().await;
-    match sqlx::query!("INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, $3)", data.name, permission.domain_id(), session.get_user_id()).execute(db).await {
+    match sqlx::query!("INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, $3)", data.name, permission.domain_id(), session.get_user_id())
+        .execute(pool).await {
         Ok(_) => {},
         Err(err) => {
             log::error!("Error creating subdomain: {err}");

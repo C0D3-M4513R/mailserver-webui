@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use rocket::http::CookieJar;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
-use crate::rocket::messages::{DATABASE_ERROR, GET_PERMISSION_ERROR, OWNER_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, OWNER_DOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::Session;
+use crate::rocket::auth::session::{refresh_permission, Session};
 
 mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
@@ -23,16 +23,8 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
         None => return unauth_error,
         Some(v) => v,
     };
-    match session.refresh_permissions(cookie_jar).await {
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -46,7 +38,6 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
         return no_perm;
     }
 
-    let db = crate::get_mysql().await;
     match sqlx::query!(r#"
 UPDATE domains
 SET domain_owner = $1
@@ -55,7 +46,7 @@ WHERE
     users.id = $1 AND slf_perms.user_id = $2 AND domains.id = $3 AND
     flattened_domains.id = domains.id AND slf_perms.domain_id = domains.id AND
     (slf_perms.user_id = ANY(flattened_domains.domain_owner) OR slf_perms.admin OR slf_perms.list_accounts)
-"#, data.owner, session.get_user_id(), permission.domain_id()).execute(db).await {
+"#, data.owner, session.get_user_id(), permission.domain_id()).execute(pool).await {
         Ok(v) => {
             if v.rows_affected() != 1 {
                 log::debug!("Tried to update domain owner, but no rows were changed?");

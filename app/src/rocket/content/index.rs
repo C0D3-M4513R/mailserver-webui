@@ -92,6 +92,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
     let session = match super::Session::new(
         user_id,
         self_change_pw,
+        mysql
     ).await {
         Ok(v) => v,
         Err(err) => {

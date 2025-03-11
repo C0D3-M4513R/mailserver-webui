@@ -38,6 +38,9 @@ perms!(_impl,
 )
     };
     (_impl, $($ident:ident),+) => {{
+        perms!(_impl_set, $($ident),+)
+    }};
+    (_impl_set, $($ident:ident),+) => {{
         const QUERY:&str = {
             const QUERY_BINDS:&str = get_bind!($($ident),+);
             const QUERY_IDENTS:&str = concat!($(stringify!($ident) , "," , )+);
@@ -107,10 +110,9 @@ pub struct Permission {
 impl Session{
 
     #[inline]
-    pub async fn new(user_id: i64, self_change_password: bool) -> anyhow::Result<Self> {
-        let db = crate::get_mysql().await;
+    pub async fn new(user_id: i64, self_change_password: bool, pool: &sqlx::postgres::PgPool) -> anyhow::Result<Self> {
         let permissions = sqlx::query!(#GET_PERMISSION_QUERY, user_id)
-            .fetch_all(db)
+            .fetch_all(pool)
             .await;
         let permissions = permissions?;
 
@@ -173,12 +175,11 @@ pub struct UpdatePermissions{
     pub users: HashMap<i64, Enabled<OptPermission>>,
 }
 impl UpdatePermissions {
-    pub async fn apply_perms(&self, self_user_id: i64, domain_id:i64) -> Result<u64, sqlx::Error> {
+    pub async fn apply_perms(&self, self_user_id: i64, domain_id:i64, pool: &sqlx::postgres::PgPool) -> Result<u64, sqlx::Error> {
         ::log::debug!("Applying permissions for domain{domain_id} by user{self_user_id}: {self:?}");
         if self.users.is_empty() {
             return Ok(0);
         }
-        let db = crate::get_mysql().await;
         let mut user_id = Vec::with_capacity(self.users.len());
         $(let mut $ident = Vec::with_capacity(self.users.len());)+
         for (user_id_i, perms) in self.users.iter() {
@@ -202,7 +203,7 @@ domain_id,
 self_user_id,
 user_id.as_slice(),
 $($ident.as_slice(),)+
-        ).execute(db).await.map(|v|v.rows_affected())
+        ).execute(pool).await.map(|v|v.rows_affected())
     }
 }
 

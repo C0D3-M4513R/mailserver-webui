@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{template, unauth_error};
-use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
+use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::Session;
+use crate::rocket::auth::session::{refresh_permission, Session};
 
 mod private {
     use std::collections::HashMap;
@@ -41,16 +41,8 @@ pub async fn admin_domain_accounts_delete(
         Some(v) => v,
     };
 
-    match session.refresh_permissions(cookie_jar).await {
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -69,7 +61,6 @@ pub async fn admin_domain_accounts_delete(
         content: Cow::Owned(template(domain, DATABASE_ERROR)),
     }));
 
-    let db = crate::get_mysql().await;
     let accounts = data.into_inner().accounts.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
     let domain_id = permissions.domain_id();
     match sqlx::query!(
@@ -79,7 +70,7 @@ pub async fn admin_domain_accounts_delete(
         "#,
         &accounts,
         domain_id
-    ).execute(db).await {
+    ).execute(pool).await {
         Ok(_) => Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts"))),
         Err(err) => {
             log::error!("Error deleting accounts: {err}");

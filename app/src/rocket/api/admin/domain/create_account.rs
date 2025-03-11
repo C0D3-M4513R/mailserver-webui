@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
-use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, GET_PERMISSION_ERROR};
+use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::Session;
+use crate::rocket::auth::session::{refresh_permission, Session};
 
 mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
@@ -31,16 +31,9 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
             content: Cow::Owned(template(domain, ACCOUNT_INVALID_CHARS)),
         }));
     }
-    match session.refresh_permissions(cookie_jar).await {
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -54,8 +47,7 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         return no_perm;
     }
 
-    let db = crate::get_mysql().await;
-    let mut transaction = match db.begin().await {
+    let mut transaction = match pool.begin().await {
         Ok(v) => v,
         Err(err) => {
             log::error!("Error beginning transaction: {err}");
@@ -63,7 +55,7 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
         }
     };
 
-    let id = match sqlx::query!("INSERT INTO users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id", permission.domain_id(), data.email).fetch_one(db).await {
+    let id = match sqlx::query!("INSERT INTO users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id", permission.domain_id(), data.email).fetch_one(&mut *transaction).await {
         Ok(v) => v.id,
         Err(err) => {
             log::error!("Error creating account: {err}");

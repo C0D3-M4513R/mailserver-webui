@@ -3,9 +3,9 @@ use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::account::admin_domain_account_get_impl;
-use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, GET_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
+use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::Session;
+use crate::rocket::auth::session::{refresh_permission, Session};
 use crate::rocket::auth::permissions::OptPermission;
 
 pub(super) mod private{
@@ -46,16 +46,8 @@ pub async fn admin_domain_account_email_put(
             content: Cow::Owned(template(domain, ACCOUNT_INVALID_CHARS)),
         }));
     }
-    match session.refresh_permissions(cookie_jar).await{
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -69,8 +61,7 @@ pub async fn admin_domain_account_email_put(
         return no_perm;
     }
 
-    let db = crate::get_mysql().await;
-    match sqlx::query!("UPDATE virtual_users SET email = $1 WHERE id = $2", data.email, user_id).execute(db).await {
+    match sqlx::query!("UPDATE virtual_users SET email = $1 WHERE id = $2", data.email, user_id).execute(pool).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error creating account: {err}");
@@ -79,6 +70,9 @@ pub async fn admin_domain_account_email_put(
             return err;
         }
     };
+    if user_id == session.get_user_id() {
+        refresh_permission!(session, cookie_jar, domain, pool);
+    }
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
 }
@@ -98,16 +92,8 @@ pub async fn admin_domain_account_user_permission_put(
         None => return unauth_error,
         Some(v) => v,
     };
-    match session.refresh_permissions(cookie_jar).await{
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -121,7 +107,6 @@ pub async fn admin_domain_account_user_permission_put(
         return no_perm;
     }
 
-    let db = crate::get_mysql().await;
     let self_user_id = session.get_user_id();
     let self_change_password = data.self_change_password;
     match sqlx::query!("MERGE INTO user_permission
@@ -133,7 +118,7 @@ pub async fn admin_domain_account_user_permission_put(
             WHERE slf_id = ANY(domains.domain_owner) OR perms.admin OR perms.modify_accounts
     ) AS input ON user_permission.id = input.id
     WHEN MATCHED THEN UPDATE SET self_change_password = input.self_change_password
-    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)", user_id, self_user_id, self_change_password).execute(db).await {
+    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)", user_id, self_user_id, self_change_password).execute(pool).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error creating account: {err}");
@@ -162,16 +147,8 @@ pub async fn admin_domain_account_password_put(
         Some(v) => v,
     };
 
-    match session.refresh_permissions(cookie_jar).await{
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -185,8 +162,7 @@ pub async fn admin_domain_account_password_put(
         return no_perm;
     }
 
-    let db = crate::get_mysql().await;
-    let mut transaction = match db.begin().await {
+    let mut transaction = match pool.begin().await {
         Ok(v) => v,
         Err(err) => {
             log::error!("Error beginning transaction: {err}");
@@ -238,16 +214,8 @@ pub async fn admin_domain_account_permissions_put(
         Some(v) => v,
     };
 
-    match session.refresh_permissions(cookie_jar).await{
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-            }));
-        }
-    }
+    let pool = crate::get_mysql().await;
+    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -261,7 +229,7 @@ pub async fn admin_domain_account_permissions_put(
         return no_perm;
     }
 
-    match data.into_inner().into_update_perms(user_id).apply_perms(session.get_user_id(), permission.domain_id()).await {
+    match data.into_inner().into_update_perms(user_id).apply_perms(session.get_user_id(), permission.domain_id(), pool).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error applying account permissions: {err}");
@@ -272,16 +240,7 @@ pub async fn admin_domain_account_permissions_put(
     };
 
     if user_id == session.get_user_id() {
-        match session.refresh_permissions(cookie_jar).await{
-            Ok(()) => {},
-            Err(err) => {
-                log::error!("Error refreshing permissions: {err}");
-                return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                    content_type: rocket::http::ContentType::HTML,
-                    content: Cow::Owned(template(domain, GET_PERMISSION_ERROR)),
-                }));
-            }
-        }
+        refresh_permission!(session, cookie_jar, domain, pool);
     }
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
