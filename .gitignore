@@ -3,3 +3,4 @@
 /.direnv/
 /.env
 /Rocket.toml
+/sql/dump_command.sh
