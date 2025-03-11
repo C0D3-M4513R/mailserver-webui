@@ -50,7 +50,7 @@ WHERE users.domain_id = $1"#, permissions.domain_id())
             let email = v.email;
             let full_email = format!("{email}@{domain}");
             let modify = if permissions.admin() || permissions.modify_accounts() {
-                format!(r#"<a href="/admin/{domain}/accounts/{id}">Modify</a>"#)
+                format!(r#"<a href="/admin/{domain}/accounts/{email}">Modify</a>"#)
             } else {
                 String::new()
             };

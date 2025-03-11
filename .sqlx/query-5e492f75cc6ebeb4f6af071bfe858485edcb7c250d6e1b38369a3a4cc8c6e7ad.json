@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "MERGE INTO user_permission\n    USING (\n        SELECT users.id, $4::boolean as self_change_password FROM users\n            JOIN flattened_web_domain_permissions perms ON perms.user_id = $3 AND perms.domain_id = users.domain_id\n            JOIN flattened_domains domains ON users.domain_id = domains.id\n            WHERE ($3 = ANY(domains.domain_owner) OR perms.admin OR perms.modify_accounts) AND\n                  users.email = $1 AND users.domain_id = $2\n    ) AS input ON user_permission.id = input.id\n    WHEN MATCHED THEN UPDATE SET self_change_password = input.self_change_password\n    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5e492f75cc6ebeb4f6af071bfe858485edcb7c250d6e1b38369a3a4cc8c6e7ad"
+}

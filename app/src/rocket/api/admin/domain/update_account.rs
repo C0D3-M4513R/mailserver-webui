@@ -6,7 +6,7 @@ use crate::rocket::content::admin::domain::account::admin_domain_account_get_imp
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::{refresh_permission, Session};
-use crate::rocket::auth::permissions::OptPermission;
+use crate::rocket::auth::permissions::{UpdatePermissions};
 
 pub(super) mod private{
     #[derive(rocket::form::FromForm)]
@@ -23,11 +23,11 @@ pub(super) mod private{
     }
 }
 
-#[rocket::put("/admin/<domain>/accounts/<user_id>/email", data = "<data>")]
+#[rocket::put("/admin/<domain>/accounts/<user_name>/email", data = "<data>")]
 pub async fn admin_domain_account_email_put(
     session: Option<Session>,
     domain: &'_ str,
-    user_id: i64,
+    user_name: &'_ str,
     data: rocket::form::Form<private::UpdateAccountEmail<'_>>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
@@ -61,26 +61,34 @@ pub async fn admin_domain_account_email_put(
         return no_perm;
     }
 
-    match sqlx::query!("UPDATE virtual_users SET email = $1 WHERE id = $2", data.email, user_id).execute(pool).await {
-        Ok(_) => {  },
+    match sqlx::query!("UPDATE virtual_users SET email = $1 WHERE email = $2 AND domain_id = $3 RETURNING id", data.email, user_name, permission.domain_id())
+        .fetch_one(pool).await
+    {
+        Ok(v) => match v.id {
+            None => {
+                // User not found or User deleted
+            },
+            Some(v) => {
+                if v == session.get_user_id() {
+                    refresh_permission!(session, cookie_jar, domain, pool);
+                }
+            },
+        }
         Err(err) => {
-            log::error!("Error creating account: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some(DATABASE_ERROR)).await;
+            log::error!("Error updating account: {err}");
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
             err.override_status(rocket::http::Status::InternalServerError);
             return err;
         }
     };
-    if user_id == session.get_user_id() {
-        refresh_permission!(session, cookie_jar, domain, pool);
-    }
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
+    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{}", data.email)))
 }
-#[rocket::put("/admin/<domain>/accounts/<user_id>/user_permission", data = "<data>")]
+#[rocket::put("/admin/<domain>/accounts/<user_name>/user_permission", data = "<data>")]
 pub async fn admin_domain_account_user_permission_put(
     session: Option<Session>,
     domain: &'_ str,
-    user_id: i64,
+    user_name: &'_ str,
     data: rocket::form::Form<private::UpdateUserPermissions>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
@@ -110,31 +118,31 @@ pub async fn admin_domain_account_user_permission_put(
     let self_user_id = session.get_user_id();
     let self_change_password = data.self_change_password;
     match sqlx::query!("MERGE INTO user_permission
-    USING (WITH input AS ( SELECT $1::bigint as id, $2::bigint as slf_id, $3::bool as self_change_password )
-        SELECT input.id, input.self_change_password FROM input
-            JOIN users ON users.id = input.id
-            JOIN flattened_web_domain_permissions perms ON perms.user_id = input.slf_id AND perms.domain_id = users.domain_id
+    USING (
+        SELECT users.id, $4::boolean as self_change_password FROM users
+            JOIN flattened_web_domain_permissions perms ON perms.user_id = $3 AND perms.domain_id = users.domain_id
             JOIN flattened_domains domains ON users.domain_id = domains.id
-            WHERE slf_id = ANY(domains.domain_owner) OR perms.admin OR perms.modify_accounts
+            WHERE ($3 = ANY(domains.domain_owner) OR perms.admin OR perms.modify_accounts) AND
+                  users.email = $1 AND users.domain_id = $2
     ) AS input ON user_permission.id = input.id
     WHEN MATCHED THEN UPDATE SET self_change_password = input.self_change_password
-    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)", user_id, self_user_id, self_change_password).execute(pool).await {
+    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)", user_name, permission.domain_id(), self_user_id, self_change_password).execute(pool).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error creating account: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some(DATABASE_ERROR)).await;
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
             err.override_status(rocket::http::Status::InternalServerError);
             return err;
         }
     };
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
+    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
 }
-#[rocket::put("/admin/<domain>/accounts/<user_id>/password", data = "<data>")]
+#[rocket::put("/admin/<domain>/accounts/<user_name>/password", data = "<data>")]
 pub async fn admin_domain_account_password_put(
     session: Option<Session>,
     domain: &'_ str,
-    user_id: i64,
+    user_name: &'_ str,
     data: rocket::form::Form<private::UpdateAccountPassword<'_>>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
@@ -166,16 +174,16 @@ pub async fn admin_domain_account_password_put(
         Ok(v) => v,
         Err(err) => {
             log::error!("Error beginning transaction: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some(DATABASE_ERROR)).await;
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
             err.override_status(rocket::http::Status::InternalServerError);
             return err;
         }
     };
 
-    match set_password(&mut transaction, user_id, session.get_user_id(), data.into_inner().password).await {
+    match set_password(&mut transaction, Err((user_name, permission.domain_id())), session.get_user_id(), data.into_inner().password).await {
         Err(err) => {
             log::error!("Error setting password: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some("There was an error setting the account Password.")).await;
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some("There was an error setting the account Password.")).await;
             err.override_status(rocket::http::Status::InternalServerError);
             return err;
         }
@@ -185,7 +193,7 @@ pub async fn admin_domain_account_password_put(
     match transaction.commit().await {
         Err(err) => {
             log::error!("Error comitting password change Transaction: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some("There was an error setting the account Password.")).await;
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some("There was an error setting the account Password.")).await;
             err.override_status(rocket::http::Status::InternalServerError);
             return err;
         }
@@ -193,16 +201,16 @@ pub async fn admin_domain_account_password_put(
     }
 
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
+    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
 }
 
 
-#[rocket::put("/admin/<domain>/accounts/<user_id>/permissions", data = "<data>")]
+#[rocket::put("/admin/<domain>/accounts/<user_name>/permissions", data = "<data>")]
 pub async fn admin_domain_account_permissions_put(
     session: Option<Session>,
     domain: &'_ str,
-    user_id: i64,
-    data: rocket::form::Form<OptPermission>,
+    user_name: &'_ str,
+    data: rocket::form::Form<UpdatePermissions>,
     cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
@@ -229,19 +237,19 @@ pub async fn admin_domain_account_permissions_put(
         return no_perm;
     }
 
-    match data.into_inner().into_update_perms(user_id).apply_perms(session.get_user_id(), permission.domain_id(), pool).await {
+    match data.apply_perms(session.get_user_id(), permission.domain_id(), pool).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error applying account permissions: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_id, Some(DATABASE_ERROR)).await;
+            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
             err.override_status(rocket::http::Status::InternalServerError);
             return err;
         }
     };
 
-    if user_id == session.get_user_id() {
+    if data.users.contains_key(&session.get_user_id()) {
         refresh_permission!(session, cookie_jar, domain, pool);
     }
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_id}")))
+    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
 }

@@ -63,9 +63,9 @@ FOR UPDATE"#, user_id)
     log::debug!("decoded Password-Hash: {phc:?}");
 
     if verify_password(&phc, password).map_err(|v|Error::VerifyPassword(v))? {
-        set_password(&mut transaction, user_id, slf_user_id, password).await?;
+        set_password(&mut transaction, Ok(user_id), slf_user_id, password).await?;
     } else if let Some(new_password) = new_password {
-        set_password(&mut transaction, user_id, slf_user_id, new_password).await?;
+        set_password(&mut transaction, Ok(user_id), slf_user_id, new_password).await?;
     }
 
     transaction.commit().await.map_err(|err|Error::TransactionCommit(err))?;
@@ -73,21 +73,27 @@ FOR UPDATE"#, user_id)
     Ok(())
 }
 
-pub async fn set_password(transaction: &mut sqlx::PgTransaction<'_>, user_id: i64, slf_user_id: i64, password: &str) -> Result<(), Error> {
+pub async fn set_password(transaction: &mut sqlx::PgTransaction<'_>, user: Result<i64, (&str, i64)>, slf_user_id: i64, password: &str) -> Result<(), Error> {
     let salt = argon2::password_hash::SaltString::generate(&mut password_hash::rand_core::OsRng);
     use argon2::password_hash::PasswordHasher;
 
     let argon = argon2::Argon2::new(ARGON2_ALGO, ARGON2_VERSION, ARGON2_PARAMS);
     let hash = argon.hash_password(password.as_bytes(), salt.as_salt()).map_err(|err|Error::HashNewPassword(err))?;
-    let res = sqlx::query!(r#"UPDATE virtual_users users SET password = $2, dovecot_type='{ARGON2ID}' WHERE id = $1
-    AND CASE WHEN users.id = $3 THEN
+    let (username, id) = match user {
+        Ok(v) => (None, v),
+        Err((email, domain_id)) => {
+            (Some(email), domain_id)
+        }
+    };
+    let res = sqlx::query!(r#"UPDATE virtual_users users SET password = $1, dovecot_type='{ARGON2ID}' WHERE
+    CASE WHEN $2::text IS NULL THEN users.id = $3 ELSE users.email = $2 AND users.domain_id = $3 END
+    AND CASE WHEN users.id = $4 THEN
         CASE WHEN (SELECT user_permission.self_change_password FROM user_permission WHERE user_permission.id = users.id) = false THEN false ELSE true END
         ELSE
-            (SELECT ($3 = ANY(domains.domain_owner)) FROM virtual_domains domains WHERE domains.id = users.domain_id) = true OR
+            (SELECT ($4 = ANY(domains.domain_owner)) FROM virtual_domains domains WHERE domains.id = users.domain_id) = true OR
             (SELECT (perms.admin OR perms.modify_accounts) FROM flattened_web_domain_permissions perms WHERE perms.domain_id = users.domain_id AND perms.user_id = users.id)
      END
-        "#,
-        user_id, hash.to_string(), slf_user_id)
+        "#, hash.to_string(), username, id, slf_user_id)
         .execute(&mut **transaction).await
         .map_err(|err|Error::SetNewPassword(err))?;
 

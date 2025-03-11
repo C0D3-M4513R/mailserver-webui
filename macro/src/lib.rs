@@ -2,10 +2,10 @@ use quote::quote;
 
 macro_rules! get_perm {
     (manage_permissions) => {
-        r#"CASE WHEN input.user_id = ANY(domains.domain_owner) OR (slf.admin AND slf.manage_permissions)                              THEN input.manage_permissions  ELSE target.manage_permissions    END AS manage_permissions"#
+        r#"CASE WHEN input.self_id = ANY(domains.domain_owner) OR (slf.admin AND slf.manage_permissions)                              THEN input.manage_permissions  ELSE target.manage_permissions    END AS manage_permissions"#
     };
     ($para:expr) => {
-        concat!(r#"CASE WHEN input.user_id = ANY(domains.domain_owner) OR (slf.manage_permissions AND (slf.admin OR slf."#, stringify!($para), "))               THEN input.", stringify!($para) , "               ELSE target.", stringify!($para) ,  "                 END AS " , stringify!($para))
+        concat!(r#"CASE WHEN input.self_id = ANY(domains.domain_owner) OR (slf.manage_permissions AND (slf.admin OR slf."#, stringify!($para), "))               THEN input.", stringify!($para) , "               ELSE target.", stringify!($para) ,  "                 END AS " , stringify!($para))
     };
 }
 macro_rules! get_bind {
@@ -49,7 +49,7 @@ perms!(_impl,
 MERGE INTO web_domain_permissions AS perm
     USING (
         WITH input AS (
-            SELECT * FROM unnest(
+            SELECT t.*, $2::bigint as self_id FROM unnest(
             "#,
                 QUERY_BINDS,
                 r#"
@@ -62,10 +62,10 @@ MERGE INTO web_domain_permissions AS perm
             )
         ) SELECT
             input.user_id AS target_user_id,"# , $(get_perm!($ident) , "," ,)* r#"
-            $1 as domain_id
+            slf.domain_id as domain_id
         FROM input
             JOIN virtual_domains domains ON domains.id = $1
-            JOIN flattened_web_domain_permissions slf ON slf.domain_id = $1 AND slf.user_id = $2
+            JOIN flattened_web_domain_permissions slf ON slf.domain_id = $1 AND slf.user_id = input.self_id
             LEFT JOIN web_domain_permissions target ON target.domain_id = domains.id AND target.user_id = input.user_id
    ) AS row ON perm.domain_id = row.domain_id AND perm.user_id = row.target_user_id
 WHEN MATCHED THEN
