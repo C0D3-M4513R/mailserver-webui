@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    alias.id AS \"id!\",\n    alias.source AS \"source!\",\n    users.username AS \"email!\"\nFROM virtual_aliases alias\nJOIN dovecot_users users ON alias.destination = users.id\nWHERE alias.domain_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "source!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "email!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "1659da579f7fa7090668f2e04e43683b046f8416602730de01512b96f79f0037"
+}

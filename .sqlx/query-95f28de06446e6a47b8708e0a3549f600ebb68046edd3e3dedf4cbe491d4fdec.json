@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    user_domain.name as \"name!\",\n    users.email as \"email!\",\n    users.id as \"id!\",\n    users.id = ANY(domains.super) as \"is_owner!\",\n    perms.admin, COALESCE(flat_perms.admin, false) as \"current_admin!\",\n    perms.view_domain, COALESCE(flat_perms.view_domain, false) as \"current_view_domain!\",\n    perms.modify_domain, COALESCE(flat_perms.modify_domain, false) as \"current_modify_domain!\",\n    perms.list_subdomain, COALESCE(flat_perms.list_subdomain, false) as \"current_list_subdomain!\",\n    perms.create_subdomain, COALESCE(flat_perms.create_subdomain, false) as \"current_create_subdomain!\",\n    perms.delete_subdomain, COALESCE(flat_perms.delete_subdomain, false) as \"current_delete_subdomain!\",\n    perms.list_accounts, COALESCE(flat_perms.list_accounts, false) as \"current_list_accounts!\",\n    perms.create_accounts, COALESCE(flat_perms.create_accounts, false) as \"current_create_accounts!\",\n    perms.modify_accounts, COALESCE(flat_perms.modify_accounts, false) as \"current_modify_accounts!\",\n    perms.delete_accounts, COALESCE(flat_perms.delete_accounts, false) as \"current_delete_accounts!\",\n    perms.create_alias, COALESCE(flat_perms.create_alias, false) as \"current_create_alias!\",\n    perms.modify_alias, COALESCE(flat_perms.modify_alias, false) as \"current_modify_alias!\",\n    perms.list_permissions, COALESCE(flat_perms.list_permissions, false) as \"current_list_permissions!\",\n    perms.manage_permissions, COALESCE(flat_perms.manage_permissions, false) as \"current_manage_permissions!\"\nFROM virtual_domains domains\n    JOIN virtual_users users ON users.domain_id = domains.id OR users.domain_id = ANY(domains.super)\n    JOIN virtual_domains user_domain ON users.domain_id = user_domain.id\n    LEFT JOIN web_domain_permissions perms ON perms.domain_id = domains.id AND perms.user_id = users.id\n    LEFT JOIN flattened_web_domain_permissions flat_perms ON cardinality(domains.super) = 0 AND flat_perms.domain_id = domains.super[1] AND flat_perms.user_id = users.id\nWHERE domains.id = $1",
+  "query": "\nSELECT\n    user_domain.name as \"name!\",\n    users.email as \"email!\",\n    users.id as \"id!\",\n    users.id = ANY(domains.domain_owner) as \"is_owner!\",\n    perms.admin, COALESCE(flat_perms.admin, false) as \"current_admin!\",\n    perms.view_domain, COALESCE(flat_perms.view_domain, false) as \"current_view_domain!\",\n    perms.modify_domain, COALESCE(flat_perms.modify_domain, false) as \"current_modify_domain!\",\n    perms.list_subdomain, COALESCE(flat_perms.list_subdomain, false) as \"current_list_subdomain!\",\n    perms.create_subdomain, COALESCE(flat_perms.create_subdomain, false) as \"current_create_subdomain!\",\n    perms.delete_subdomain, COALESCE(flat_perms.delete_subdomain, false) as \"current_delete_subdomain!\",\n    perms.list_accounts, COALESCE(flat_perms.list_accounts, false) as \"current_list_accounts!\",\n    perms.create_accounts, COALESCE(flat_perms.create_accounts, false) as \"current_create_accounts!\",\n    perms.modify_accounts, COALESCE(flat_perms.modify_accounts, false) as \"current_modify_accounts!\",\n    perms.delete_accounts, COALESCE(flat_perms.delete_accounts, false) as \"current_delete_accounts!\",\n    perms.list_alias, COALESCE(flat_perms.list_alias, false) as \"current_list_alias!\",\n    perms.create_alias, COALESCE(flat_perms.create_alias, false) as \"current_create_alias!\",\n    perms.delete_alias, COALESCE(flat_perms.delete_alias, false) as \"current_delete_alias!\",\n    perms.list_permissions, COALESCE(flat_perms.list_permissions, false) as \"current_list_permissions!\",\n    perms.manage_permissions, COALESCE(flat_perms.manage_permissions, false) as \"current_manage_permissions!\"\nFROM virtual_domains domains\n    JOIN virtual_users users ON users.domain_id = domains.id OR users.domain_id = ANY(domains.super)\n    JOIN virtual_domains user_domain ON users.domain_id = user_domain.id\n    LEFT JOIN web_domain_permissions perms ON perms.domain_id = domains.id AND perms.user_id = users.id\n    LEFT JOIN flattened_web_domain_permissions flat_perms ON cardinality(domains.super) = 0 AND flat_perms.domain_id = domains.super[1] AND flat_perms.user_id = users.id\nWHERE domains.id = $1",
   "describe": {
     "columns": [
       {
@@ -125,41 +125,51 @@
       },
       {
         "ordinal": 24,
-        "name": "create_alias",
+        "name": "list_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 25,
-        "name": "current_create_alias!",
+        "name": "current_list_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 26,
-        "name": "modify_alias",
+        "name": "create_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 27,
-        "name": "current_modify_alias!",
+        "name": "current_create_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 28,
-        "name": "list_permissions",
+        "name": "delete_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 29,
-        "name": "current_list_permissions!",
+        "name": "current_delete_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 30,
-        "name": "manage_permissions",
+        "name": "list_permissions",
         "type_info": "Bool"
       },
       {
         "ordinal": 31,
+        "name": "current_list_permissions!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 32,
+        "name": "manage_permissions",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 33,
         "name": "current_manage_permissions!",
         "type_info": "Bool"
       }
@@ -201,8 +211,10 @@
       true,
       null,
       true,
+      null,
+      true,
       null
     ]
   },
-  "hash": "cafd48d8de1b0cc457daafc73f25a24c9fb51d190ff5918825d546faee135521"
+  "hash": "95f28de06446e6a47b8708e0a3549f600ebb68046edd3e3dedf4cbe491d4fdec"
 }

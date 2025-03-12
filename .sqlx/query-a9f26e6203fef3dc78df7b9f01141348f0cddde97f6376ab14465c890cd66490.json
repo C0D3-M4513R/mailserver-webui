@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    SELECT\n        users.id as \"id!\"\n    FROM  virtual_users          users\n    JOIN  virtual_domains        domains    ON users.domain_id = domains.id\n    WHERE users.email = $1 AND domains.name = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "a9f26e6203fef3dc78df7b9f01141348f0cddde97f6376ab14465c890cd66490"
+}

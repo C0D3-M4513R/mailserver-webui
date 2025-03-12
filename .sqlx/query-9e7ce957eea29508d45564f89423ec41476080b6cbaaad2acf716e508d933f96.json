@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, (SELECT domain_owner FROM domains WHERE id = $2))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9e7ce957eea29508d45564f89423ec41476080b6cbaaad2acf716e508d933f96"
+}

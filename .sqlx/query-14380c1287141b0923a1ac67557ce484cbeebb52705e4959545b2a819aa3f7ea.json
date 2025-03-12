@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(self_change_password, true) AS \"self_change_password!\" ,1 as dummy FROM users LEFT JOIN user_permission ON users.id = user_permission.id WHERE users.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "self_change_password!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "dummy",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "14380c1287141b0923a1ac67557ce484cbeebb52705e4959545b2a819aa3f7ea"
+}

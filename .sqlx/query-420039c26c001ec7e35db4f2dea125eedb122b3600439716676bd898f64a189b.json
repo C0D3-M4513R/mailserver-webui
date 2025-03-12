@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    users.id AS \"id!\",\n    COALESCE(user_perm.self_change_password, true) AS \"self_change_password!\",\n    target_perms.admin, flat_perms.admin as \"current_admin!\",\n    target_perms.view_domain, flat_perms.view_domain as \"current_view_domain!\",\n    target_perms.modify_domain, flat_perms.modify_domain as \"current_modify_domain!\",\n    target_perms.list_subdomain, flat_perms.list_subdomain as \"current_list_subdomain!\",\n    target_perms.create_subdomain, flat_perms.create_subdomain as \"current_create_subdomain!\",\n    target_perms.delete_subdomain, flat_perms.delete_subdomain as \"current_delete_subdomain!\",\n    target_perms.list_accounts, flat_perms.list_accounts as \"current_list_accounts!\",\n    target_perms.create_accounts, flat_perms.create_accounts as \"current_create_accounts!\",\n    target_perms.modify_accounts, flat_perms.modify_accounts as \"current_modify_accounts!\",\n    target_perms.delete_accounts, flat_perms.delete_accounts as \"current_delete_accounts!\",\n    target_perms.create_alias, flat_perms.create_alias as \"current_create_alias!\",\n    target_perms.modify_alias, flat_perms.modify_alias as \"current_modify_alias!\",\n    target_perms.list_permissions, flat_perms.list_permissions as \"current_list_permissions!\",\n    target_perms.manage_permissions, flat_perms.manage_permissions as \"current_manage_permissions!\"\nFROM virtual_users users\nLEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = users.domain_id\nLEFT JOIN user_permission user_perm ON users.id = user_perm.id\nJOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = users.domain_id AND flat_perms.user_id = users.id\nWHERE users.email = $1 AND users.domain_id = $2\n",
+  "query": "\nSELECT\n    users.id AS \"id!\",\n    COALESCE(user_perm.self_change_password, true) AS \"self_change_password!\",\n    target_perms.admin, flat_perms.admin as \"current_admin!\",\n    target_perms.view_domain, flat_perms.view_domain as \"current_view_domain!\",\n    target_perms.modify_domain, flat_perms.modify_domain as \"current_modify_domain!\",\n    target_perms.list_subdomain, flat_perms.list_subdomain as \"current_list_subdomain!\",\n    target_perms.create_subdomain, flat_perms.create_subdomain as \"current_create_subdomain!\",\n    target_perms.delete_subdomain, flat_perms.delete_subdomain as \"current_delete_subdomain!\",\n    target_perms.list_accounts, flat_perms.list_accounts as \"current_list_accounts!\",\n    target_perms.create_accounts, flat_perms.create_accounts as \"current_create_accounts!\",\n    target_perms.modify_accounts, flat_perms.modify_accounts as \"current_modify_accounts!\",\n    target_perms.delete_accounts, flat_perms.delete_accounts as \"current_delete_accounts!\",\n    target_perms.list_alias, flat_perms.list_alias as \"current_list_alias!\",\n    target_perms.create_alias, flat_perms.create_alias as \"current_create_alias!\",\n    target_perms.delete_alias, flat_perms.delete_alias as \"current_delete_alias!\",\n    target_perms.list_permissions, flat_perms.list_permissions as \"current_list_permissions!\",\n    target_perms.manage_permissions, flat_perms.manage_permissions as \"current_manage_permissions!\"\nFROM virtual_users users\nLEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = users.domain_id\nLEFT JOIN user_permission user_perm ON users.id = user_perm.id\nJOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = users.domain_id AND flat_perms.user_id = users.id\nWHERE users.email = $1 AND users.domain_id = $2\n",
   "describe": {
     "columns": [
       {
@@ -115,41 +115,51 @@
       },
       {
         "ordinal": 22,
-        "name": "create_alias",
+        "name": "list_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 23,
-        "name": "current_create_alias!",
+        "name": "current_list_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 24,
-        "name": "modify_alias",
+        "name": "create_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 25,
-        "name": "current_modify_alias!",
+        "name": "current_create_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 26,
-        "name": "list_permissions",
+        "name": "delete_alias",
         "type_info": "Bool"
       },
       {
         "ordinal": 27,
-        "name": "current_list_permissions!",
+        "name": "current_delete_alias!",
         "type_info": "Bool"
       },
       {
         "ordinal": 28,
-        "name": "manage_permissions",
+        "name": "list_permissions",
         "type_info": "Bool"
       },
       {
         "ordinal": 29,
+        "name": "current_list_permissions!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 30,
+        "name": "manage_permissions",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 31,
         "name": "current_manage_permissions!",
         "type_info": "Bool"
       }
@@ -190,8 +200,10 @@
       true,
       true,
       true,
+      true,
+      true,
       true
     ]
   },
-  "hash": "97ea5a46050ebc3f63761cb85a792459cedc109cd2ff8dba0ac13fdd40b88eac"
+  "hash": "420039c26c001ec7e35db4f2dea125eedb122b3600439716676bd898f64a189b"
 }
