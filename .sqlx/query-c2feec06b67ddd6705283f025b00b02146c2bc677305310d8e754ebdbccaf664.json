@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE virtual_users SET email = $1 WHERE email = $2 AND domain_id = $3 RETURNING id",
+  "query": "SELECT insert_new_account($1, $2, $3, '{ARGON2ID}', $4) as id",
   "describe": {
     "columns": [
       {
@@ -11,14 +11,15 @@
     ],
     "parameters": {
       "Left": [
+        "Int8",
         "Text",
         "Text",
         "Int8"
       ]
     },
     "nullable": [
-      true
+      null
     ]
   },
-  "hash": "a28bd1877191ed35a72f3d90e2e1fd895c32873eecd39d53836be79babd842e2"
+  "hash": "c2feec06b67ddd6705283f025b00b02146c2bc677305310d8e754ebdbccaf664"
 }

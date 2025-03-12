@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO users (domain_id, email, password) VALUES ($1, $2, '') RETURNING id",
+  "query": "SELECT set_user_email(users.id, $1, $2) as id from users WHERE email = $3 AND domain_id = $4",
   "describe": {
     "columns": [
       {
@@ -11,13 +11,15 @@
     ],
     "parameters": {
       "Left": [
+        "Text",
         "Int8",
-        "Text"
+        "Text",
+        "Int8"
       ]
     },
     "nullable": [
-      false
+      null
     ]
   },
-  "hash": "8f492d5a288d04191b91c3787887db1d505da88df2d5c0ab2c4bbcadda9b3428"
+  "hash": "1a8fc88394fbf130e91511d944c5156823280e2c8b983cc0d13fe82295d9d813"
 }

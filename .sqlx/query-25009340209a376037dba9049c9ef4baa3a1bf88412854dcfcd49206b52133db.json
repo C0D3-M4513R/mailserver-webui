@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT  perm.admin as \"admin!\",  perm.view_domain as \"view_domain!\",  perm.modify_domain as \"modify_domain!\",  perm.list_subdomain as \"list_subdomain!\",  perm.create_subdomain as \"create_subdomain!\",  perm.delete_subdomain as \"delete_subdomain!\",  perm.list_accounts as \"list_accounts!\",  perm.create_accounts as \"create_accounts!\",  perm.modify_accounts as \"modify_accounts!\",  perm.delete_accounts as \"delete_accounts!\",  perm.list_alias as \"list_alias!\",  perm.create_alias as \"create_alias!\",  perm.delete_alias as \"delete_alias!\",  perm.list_permissions as \"list_permissions!\",  perm.manage_permissions as \"manage_permissions!\",      domains.name as \"domain!\",\n        perm.domain_id as \"domain_id!\",\n        domains.accepts_email as \"domain_accepts_email!\",\n        domains.level as \"domain_level!\",\n        perm.user_id = ANY(domains.domain_owner) as \"is_owner!\"\nFROM flattened_web_domain_permissions perm\nJOIN virtual_domains domains ON domains.id = perm.domain_id\n        WHERE perm.user_id = $1",
+  "query": "SELECT  perm.admin as \"admin!\",  perm.view_domain as \"view_domain!\",  perm.modify_domain as \"modify_domain!\",  perm.list_subdomain as \"list_subdomain!\",  perm.create_subdomain as \"create_subdomain!\",  perm.delete_subdomain as \"delete_subdomain!\",  perm.list_accounts as \"list_accounts!\",  perm.create_accounts as \"create_accounts!\",  perm.modify_accounts as \"modify_accounts!\",  perm.delete_accounts as \"delete_accounts!\",  perm.list_alias as \"list_alias!\",  perm.create_alias as \"create_alias!\",  perm.delete_alias as \"delete_alias!\",  perm.list_permissions as \"list_permissions!\",  perm.manage_permissions as \"manage_permissions!\",  perm.list_deleted as \"list_deleted!\",  perm.undelete as \"undelete!\",  perm.delete_disabled as \"delete_disabled!\",      domains.name as \"domain!\",\n        perm.domain_id as \"domain_id!\",\n        domains.accepts_email as \"domain_accepts_email!\",\n        domains.level as \"domain_level!\",\n        perm.user_id = domains.domain_owner[1] as \"is_owner!\",\n        COALESCE(perm.user_id = domains.domain_owner[2], false) as \"super_owner!\"\nFROM flattened_web_domain_permissions perm\nJOIN virtual_domains domains ON domains.id = perm.domain_id\n        WHERE perm.user_id = $1",
   "describe": {
     "columns": [
       {
@@ -80,27 +80,47 @@
       },
       {
         "ordinal": 15,
-        "name": "domain!",
-        "type_info": "Text"
+        "name": "list_deleted!",
+        "type_info": "Bool"
       },
       {
         "ordinal": 16,
-        "name": "domain_id!",
-        "type_info": "Int8"
+        "name": "undelete!",
+        "type_info": "Bool"
       },
       {
         "ordinal": 17,
-        "name": "domain_accepts_email!",
+        "name": "delete_disabled!",
         "type_info": "Bool"
       },
       {
         "ordinal": 18,
+        "name": "domain!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 19,
+        "name": "domain_id!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 20,
+        "name": "domain_accepts_email!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 21,
         "name": "domain_level!",
         "type_info": "Int8"
       },
       {
-        "ordinal": 19,
+        "ordinal": 22,
         "name": "is_owner!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 23,
+        "name": "super_owner!",
         "type_info": "Bool"
       }
     ],
@@ -129,8 +149,12 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
+      null,
       null
     ]
   },
-  "hash": "72c6652260ce643d7960c572d279ed6d939e2a3236655000be634158d11e01f1"
+  "hash": "25009340209a376037dba9049c9ef4baa3a1bf88412854dcfcd49206b52133db"
 }

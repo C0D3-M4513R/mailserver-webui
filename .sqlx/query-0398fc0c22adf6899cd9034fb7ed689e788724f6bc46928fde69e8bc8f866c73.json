@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    domains.id AS \"id!\",\n    domains.name AS \"name!\"\nFROM flattened_domains domains\nWHERE $1 = ANY(domains.super) AND domains.deleted = true",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "0398fc0c22adf6899cd9034fb7ed689e788724f6bc46928fde69e8bc8f866c73"
+}

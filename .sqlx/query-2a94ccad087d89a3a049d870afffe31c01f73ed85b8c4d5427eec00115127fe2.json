@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT\n    domains.id AS \"id!\",\n    domains.name AS \"name!\"\nFROM domains\nJOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id AND permissions.user_id = $2\nWHERE\n    ( $2 = domains.domain_owner OR permissions.view_domain OR permissions.admin) AND\n    $1 = domains.super AND domains.deleted = false",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "2a94ccad087d89a3a049d870afffe31c01f73ed85b8c4d5427eec00115127fe2"
+}
