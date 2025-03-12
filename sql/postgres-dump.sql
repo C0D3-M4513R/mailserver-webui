@@ -218,12 +218,15 @@ CREATE TABLE public.web_domain_permissions (
     create_accounts boolean,
     modify_accounts boolean,
     create_alias boolean,
-    modify_alias boolean,
+    delete_alias boolean,
     list_permissions boolean,
     manage_permissions boolean,
     list_subdomain boolean,
     delete_accounts boolean,
-    modify_domain boolean
+    modify_domain boolean,
+    list_alias boolean,
+    list_deleted boolean,
+    undelete boolean
 );
 
 
@@ -294,11 +297,11 @@ CREATE VIEW public.flattened_web_domain_permissions AS
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_alias IS NOT NULL))
           ORDER BY td.level DESC), false))[1] AS create_alias,
-    (array_append(ARRAY( SELECT perm.modify_alias
+    (array_append(ARRAY( SELECT perm.delete_alias
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
-          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.modify_alias IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS modify_alias,
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_alias IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS delete_alias,
     (array_append(ARRAY( SELECT perm.list_permissions
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
@@ -308,7 +311,22 @@ CREATE VIEW public.flattened_web_domain_permissions AS
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.manage_permissions IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS manage_permissions
+          ORDER BY td.level DESC), false))[1] AS manage_permissions,
+    (array_append(ARRAY( SELECT perm.list_alias
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_alias IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS list_alias,
+    (array_append(ARRAY( SELECT perm.list_deleted
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_deleted IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS list_deleted,
+    (array_append(ARRAY( SELECT perm.undelete
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.undelete IS NOT NULL))
+          ORDER BY td.level DESC), false))[1] AS undelete
    FROM public.flattened_domains domains,
     public.users;
 
@@ -497,6 +515,13 @@ ALTER TABLE ONLY public.web_domain_permissions
 --
 
 CREATE UNIQUE INDEX domains_name_uindex ON public.domains USING btree (name);
+
+
+--
+-- Name: virtual_aliases_domain_id_source_index; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX virtual_aliases_domain_id_source_index ON public.virtual_aliases USING btree (domain_id, source);
 
 
 --
