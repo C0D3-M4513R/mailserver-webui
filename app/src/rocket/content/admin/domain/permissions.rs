@@ -42,7 +42,7 @@ SELECT
     user_domain.name as "name!",
     users.email as "email!",
     users.id as "id!",
-    users.id = ANY(domains.super) as "is_owner!",
+    users.id = ANY(domains.domain_owner) as "is_owner!",
     perms.admin, COALESCE(flat_perms.admin, false) as "current_admin!",
     perms.view_domain, COALESCE(flat_perms.view_domain, false) as "current_view_domain!",
     perms.modify_domain, COALESCE(flat_perms.modify_domain, false) as "current_modify_domain!",
