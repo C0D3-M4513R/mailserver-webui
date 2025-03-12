@@ -136,7 +136,7 @@ pub async fn admin_domain_subdomains_delete_post(
     }
 
 }
-#[rocket::delete("/admin/<domain>/subdomains/recover", data="<data>")]
+#[rocket::post("/admin/<domain>/subdomains/recover", data="<data>")]
 pub async fn admin_domain_subdomains_recover_post(
     session: Option<Session>,
     domain: &str,

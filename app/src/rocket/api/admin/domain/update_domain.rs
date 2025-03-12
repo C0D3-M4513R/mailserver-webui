@@ -3,7 +3,7 @@ use crate::rocket::auth::permissions::UpdatePermissions;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::permissions::admin_domain_permissions_get_impl;
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
-use crate::rocket::messages::{DATABASE_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_DOMAIN_NO_PERM, SUBDOMAIN_INVALID_CHARS};
+use crate::rocket::messages::{DATABASE_ERROR, DATABASE_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_DOMAIN_NO_PERM, SUBDOMAIN_INVALID_CHARS};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 mod private{
@@ -48,15 +48,20 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
         }));
     }
 
-    match sqlx::query!("UPDATE domains SET name = $1 WHERE id = $2 AND domains.id != domains.super", data.name, permission.domain_id()).execute(pool).await {
+    match sqlx::query!("SELECT change_domain_name($1, $2, $3) as id", permission.domain_id(), data.name, session.get_user_id()).fetch_one(pool).await {
         Ok(v) => {
-            if v.rows_affected() == 1 {
-                            } else {
-                log::warn!("Rust vs DB Permission Check Inconsistency: Wanted to update domain name from {domain} to {}, but no rows were changed.", data.name);
+            match v.id {
+                Some(_) => {},
+                None => {
+                    return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                        content_type: rocket::http::ContentType::HTML,
+                        content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+                    }));
+                }
             }
         },
         Err(err) => {
-            log::error!("Error creating subdomain: {err}");
+            log::error!("Error changing domain name: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
             result.override_status(rocket::http::Status::InternalServerError);
             return result;
@@ -91,15 +96,20 @@ pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: 
         return no_perm;
     }
 
-    match sqlx::query!("UPDATE domains SET accepts_email = $1 WHERE deleted = false AND id = $2", data.accepts_email, permission.domain_id()).execute(pool).await {
+    match sqlx::query!("SELECT change_domain_accepts_email($1, $2, $3) as id", permission.domain_id(), data.accepts_email, session.get_user_id()).fetch_one(pool).await {
         Ok(v) => {
-            if v.rows_affected() == 1 {
-                            } else {
-                log::warn!("Rust vs DB Permission Check Inconsistency: Wanted to update accepts_email on domain {domain}, but no rows were changed.");
+            match v.id {
+                Some(_) => {},
+                None => {
+                    return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                        content_type: rocket::http::ContentType::HTML,
+                        content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+                    }));
+                }
             }
         },
         Err(err) => {
-            log::error!("Error creating subdomain: {err}");
+            log::error!("Error changing domain name: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
             result.override_status(rocket::http::Status::InternalServerError);
             return result;
