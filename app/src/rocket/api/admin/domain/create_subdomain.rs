@@ -1,10 +1,9 @@
 use std::borrow::Cow;
-use rocket::http::CookieJar;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
 use crate::rocket::messages::{SUBDOMAIN_INVALID_CHARS, CREATE_SUBDOMAIN_NO_PERM, DATABASE_ERROR};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::{refresh_permission, Session};
+use crate::rocket::auth::session::Session;
 
 mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
@@ -14,17 +13,20 @@ mod private{
 }
 
 #[rocket::put("/admin/<domain>/subdomains", data = "<data>")]
-pub async fn admin_domain_subdomains_put(session: Option<Session>, domain: &'_ str, data: rocket::form::Form<private::CreateSubdomain<'_>>, cookie_jar: &'_ CookieJar<'_>) -> Return {
+pub async fn admin_domain_subdomains_put(
+    session: Option<Session>,
+    domain: &'_ str,
+    data: rocket::form::Form<private::CreateSubdomain<'_>>,
+) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth_error,
         Some(v) => v,
     };
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -44,7 +46,7 @@ pub async fn admin_domain_subdomains_put(session: Option<Session>, domain: &'_ s
         }));
     }
 
-    match sqlx::query!("INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, $3)", data.name, permission.domain_id(), session.get_user_id())
+    match sqlx::query!("INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, (SELECT domain_owner FROM domains WHERE id = $2))", data.name, permission.domain_id())
         .execute(pool).await {
         Ok(_) => {},
         Err(err) => {
@@ -54,7 +56,6 @@ pub async fn admin_domain_subdomains_put(session: Option<Session>, domain: &'_ s
             return result;
         }
     };
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/subdomains")))
 }

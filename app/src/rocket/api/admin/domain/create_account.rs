@@ -1,10 +1,9 @@
 use std::borrow::Cow;
-use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::{refresh_permission, Session};
+use crate::rocket::auth::session::Session;
 
 mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
@@ -15,12 +14,16 @@ mod private{
 }
 
 #[rocket::put("/admin/<domain>/accounts", data = "<data>")]
-pub async fn create_account(session: Option<Session>, domain: &'_ str, data: rocket::form::Form<private::CreateAccount<'_>>, cookie_jar: &'_ CookieJar<'_>) -> Return {
+pub async fn create_account(
+    session: Option<Session>,
+    domain: &'_ str,
+    data: rocket::form::Form<private::CreateAccount<'_>>
+) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth_error,
         Some(v) => v,
     };
@@ -33,7 +36,6 @@ pub async fn create_account(session: Option<Session>, domain: &'_ str, data: roc
     }
 
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,

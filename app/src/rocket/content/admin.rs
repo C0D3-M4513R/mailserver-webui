@@ -1,11 +1,18 @@
 pub mod domain;
 
-pub use domain::{admin_domain_get, admin_domain_accounts_get, admin_domain_account_get, admin_domain_subdomains_get, admin_domain_permissions_get};
+pub use domain::{admin_domain_get, admin_domain_accounts_get, admin_domain_account_get, admin_domain_subdomains_get, admin_domain_permissions_get, admin_domain_aliases_get};
 
 use super::{Return, TypedContent, Session, SESSION_HEADER};
 use std::borrow::Cow;
+use crate::rocket::auth::session::Permission;
 use crate::rocket::content::email_settings::SETTINGS;
-
+pub(super) fn sort_permissions(permissions: &std::collections::HashMap<String, Permission>) -> Vec<(&String, &Permission)> {
+    let mut permissions = permissions.iter().collect::<Vec<_>>();
+    permissions.sort_by(|(k1, p1), (k2, p2)| {
+        (p1.domain_level(), k1).cmp(&(p2.domain_level(), k2))
+    });
+    permissions
+}
 #[rocket::get("/admin")]
 pub async fn admin_get(session: Option<Session>) -> Return {
     let session = match session {
@@ -14,10 +21,7 @@ pub async fn admin_get(session: Option<Session>) -> Return {
     };
 
     let mut domain_list = String::new();
-    let mut permissions = session.get_permissions().iter().collect::<Vec<_>>();
-    permissions.sort_by(|(k1, p1), (k2, p2)| {
-        (p1.domain_level(), k1).cmp(&(p2.domain_level(), k2))
-    });
+    let permissions = sort_permissions(session.get_permissions());
     for (domain, permissions) in permissions {
         if !permissions.admin() && !permissions.view_domain() {
             continue;

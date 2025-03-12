@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::messages::{DATABASE_ERROR, DELETE_SUBDOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::{refresh_permission, Session};
+use crate::rocket::auth::session::Session;
 
 mod private {
     use std::collections::HashMap;
@@ -18,19 +18,17 @@ pub async fn admin_domain_subdomains_delete(
     session: Option<Session>,
     domain: &str,
     data: ::rocket::form::Form<private::DeleteSubdomains>,
-    cookie_jar: &'_ rocket::http::CookieJar<'_>,
 ) -> Return {
     let unauth = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth,
         Some(v) => v,
     };
 
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,

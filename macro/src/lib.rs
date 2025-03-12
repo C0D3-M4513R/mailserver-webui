@@ -31,16 +31,18 @@ perms!(_impl,
     create_accounts,
     modify_accounts,
     delete_accounts,
+    list_alias,
     create_alias,
-    modify_alias,
+    delete_alias,
     list_permissions,
-    manage_permissions
+    manage_permissions;
+    self_change_password
 )
     };
-    (_impl, $($ident:ident),+) => {{
-        perms!(_impl_set, $($ident),+)
+    (_impl, $($ident:ident),+;$($user_perm:ident),+) => {{
+        perms!(_impl_set, $($ident),+;$($user_perm),+)
     }};
-    (_impl_set, $($ident:ident),+) => {{
+    (_impl_set, $($ident:ident),+;$($user_perm:ident),+) => {{
         const QUERY:&str = {
             const QUERY_BINDS:&str = get_bind!($($ident),+);
             const QUERY_IDENTS:&str = concat!($(stringify!($ident) , "," , )+);
@@ -98,6 +100,13 @@ r#"     domains.name as "domain!",
 FROM flattened_web_domain_permissions perm
 JOIN virtual_domains domains ON domains.id = perm.domain_id
         WHERE perm.user_id = $1"#);
+        const GET_USER_PERMISSION_QUERY:&str = {
+            macro_rules! user_perm_defaults {
+                (self_change_password) => {true};
+                ($upd:ident) => {false};
+            }
+            const_format::concatcp!("SELECT ", $("COALESCE(", stringify!($user_perm), ", ", user_perm_defaults!($user_perm), ") AS \"", stringify!($user_perm), "!\" ,"),+ ,"1 as dummy FROM users LEFT JOIN user_permission ON users.id = user_permission.id WHERE users.id = $1")
+        };
         quote!{
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
 pub struct Permission {
@@ -107,10 +116,21 @@ pub struct Permission {
     domain_level: i64,
     $($ident : bool,)*
 }
+
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
+pub struct UserPermission {
+    $($user_perm: bool,)*
+}
+impl UserPermission{
+    $( #[inline] pub const fn $user_perm(&self) -> bool { self.$user_perm } )*
+}
 impl Session{
 
     #[inline]
-    pub async fn new(user_id: i64, self_change_password: bool, pool: &sqlx::postgres::PgPool) -> anyhow::Result<Self> {
+    pub async fn new(user_id: i64, pool: &sqlx::postgres::PgPool) -> Result<Self, ::sqlx::Error> {
+        let user_perm = sqlx::query!(#GET_USER_PERMISSION_QUERY, user_id)
+            .fetch_one(pool)
+            .await?;
         let permissions = sqlx::query!(#GET_PERMISSION_QUERY, user_id)
             .fetch_all(pool)
             .await;
@@ -128,7 +148,9 @@ impl Session{
 
         Ok(Self {
             user_id,
-            self_change_password,
+            user_permission: UserPermission{
+                $($user_perm: user_perm.$user_perm,)*
+            },
             permissions,
         })
     }

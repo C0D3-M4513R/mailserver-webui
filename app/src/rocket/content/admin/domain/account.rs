@@ -50,8 +50,9 @@ SELECT
     target_perms.create_accounts, flat_perms.create_accounts as "current_create_accounts!",
     target_perms.modify_accounts, flat_perms.modify_accounts as "current_modify_accounts!",
     target_perms.delete_accounts, flat_perms.delete_accounts as "current_delete_accounts!",
+    target_perms.list_alias, flat_perms.list_alias as "current_list_alias!",
     target_perms.create_alias, flat_perms.create_alias as "current_create_alias!",
-    target_perms.modify_alias, flat_perms.modify_alias as "current_modify_alias!",
+    target_perms.delete_alias, flat_perms.delete_alias as "current_delete_alias!",
     target_perms.list_permissions, flat_perms.list_permissions as "current_list_permissions!",
     target_perms.manage_permissions, flat_perms.manage_permissions as "current_manage_permissions!"
 FROM virtual_users users
@@ -128,8 +129,9 @@ WHERE users.email = $1 AND users.domain_id = $2
         let create_accounts = format_value(     "Create Accounts: ",        format!("users[{user_id}].value.create_accounts"),      account.create_accounts,        account.current_create_accounts,     p_manage_perm && (p_admin || permissions.create_accounts()));
         let modify_accounts = format_value(     "Modify Accounts: ",        format!("users[{user_id}].value.modify_accounts"),      account.modify_accounts,        account.current_modify_accounts,     p_manage_perm && (p_admin || permissions.modify_accounts()));
         let delete_accounts = format_value(     "Delete Accounts: ",        format!("users[{user_id}].value.delete_accounts"),      account.delete_accounts,        account.current_delete_accounts,     p_manage_perm && (p_admin || permissions.delete_accounts()));
+        let list_alias = format_value(          "List Alias: ",           format!("users[{user_id}].value.list_alias"),           account.list_alias,             account.current_list_alias,          p_manage_perm && (p_admin || permissions.list_alias()));
         let create_alias = format_value(        "Create Alias: ",           format!("users[{user_id}].value.create_alias"),         account.create_alias,           account.current_create_alias,        p_manage_perm && (p_admin || permissions.create_alias()));
-        let modify_alias = format_value(        "Modify Alias: ",           format!("users[{user_id}].value.modify_alias"),         account.modify_alias,           account.current_modify_alias,        p_manage_perm && (p_admin || permissions.modify_alias()));
+        let delete_alias = format_value(        "Delete Alias: ",           format!("users[{user_id}].value.delete_alias"),         account.delete_alias,           account.current_delete_alias,        p_manage_perm && (p_admin || permissions.delete_alias()));
         let list_permissions = format_value(    "List Permissions: ",       format!("users[{user_id}].value.list_permissions"),     account.list_permissions,       account.current_list_permissions,    p_manage_perm && (p_admin || permissions.list_permissions()));
         let manage_permissions = format_value(  "Manage Permissions: ",     format!("users[{user_id}].value.manage_permissions"),   account.manage_permissions,     account.current_manage_permissions,  p_manage_perm && (p_admin || permissions.manage_permissions()));
         format!(r#"
@@ -149,8 +151,9 @@ WHERE users.email = $1 AND users.domain_id = $2
     {create_accounts}<br/>
     {modify_accounts}<br/>
     {delete_accounts}<br/>
+    {list_alias}<br/>
     {create_alias}<br/>
-    {modify_alias}<br/>
+    {delete_alias}<br/>
     {list_permissions}<br/>
     {manage_permissions}<br/>
     <input type="submit" value="Save Changes"/>

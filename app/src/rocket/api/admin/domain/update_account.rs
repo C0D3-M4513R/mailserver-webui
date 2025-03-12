@@ -1,11 +1,10 @@
 use std::borrow::Cow;
-use rocket::http::CookieJar;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::account::admin_domain_account_get_impl;
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::{refresh_permission, Session};
+use crate::rocket::auth::session::Session;
 use crate::rocket::auth::permissions::{UpdatePermissions};
 
 pub(super) mod private{
@@ -28,14 +27,13 @@ pub async fn admin_domain_account_email_put(
     session: Option<Session>,
     domain: &'_ str,
     user_name: &'_ str,
-    data: rocket::form::Form<private::UpdateAccountEmail<'_>>,
-    cookie_jar: &'_ CookieJar<'_>
+    data: rocket::form::Form<private::UpdateAccountEmail<'_>>
 ) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth_error,
         Some(v) => v,
     };
@@ -47,7 +45,6 @@ pub async fn admin_domain_account_email_put(
         }));
     }
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -70,8 +67,7 @@ pub async fn admin_domain_account_email_put(
             },
             Some(v) => {
                 if v == session.get_user_id() {
-                    refresh_permission!(session, cookie_jar, domain, pool);
-                }
+                                    }
             },
         }
         Err(err) => {
@@ -90,18 +86,16 @@ pub async fn admin_domain_account_user_permission_put(
     domain: &'_ str,
     user_name: &'_ str,
     data: rocket::form::Form<private::UpdateUserPermissions>,
-    cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth_error,
         Some(v) => v,
     };
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -144,19 +138,17 @@ pub async fn admin_domain_account_password_put(
     domain: &'_ str,
     user_name: &'_ str,
     data: rocket::form::Form<private::UpdateAccountPassword<'_>>,
-    cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth_error,
         Some(v) => v,
     };
 
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -211,19 +203,17 @@ pub async fn admin_domain_account_permissions_put(
     domain: &'_ str,
     user_name: &'_ str,
     data: rocket::form::Form<UpdatePermissions>,
-    cookie_jar: &'_ CookieJar<'_>
 ) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth_error,
         Some(v) => v,
     };
 
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -248,8 +238,7 @@ pub async fn admin_domain_account_permissions_put(
     };
 
     if data.users.contains_key(&session.get_user_id()) {
-        refresh_permission!(session, cookie_jar, domain, pool);
-    }
+            }
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
 }

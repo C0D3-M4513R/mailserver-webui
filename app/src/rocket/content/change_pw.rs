@@ -35,7 +35,7 @@ pub async fn admin_get_change_pw(session: Option<Session>) -> Return {
         Some(v) => v,
     };
 
-    if !session.get_self_change_password() {
+    if !session.get_user_permission().self_change_password() {
         return Return::Content((rocket::http::Status::Forbidden, TypedContent {
             content_type: rocket::http::ContentType::HTML,
             content: Cow::Borrowed(const_format::concatcp!(HEAD,SELF_CHANGE_PASSWORD_NO_PERM, TAIL))

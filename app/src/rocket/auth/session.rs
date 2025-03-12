@@ -2,36 +2,31 @@ use std::io::Read;
 use base64::Engine;
 use rocket::Request;
 use rocket::request::Outcome;
-use crate::WEBMAIL_DOMAIN;
+use crate::{get_mysql, WEBMAIL_DOMAIN};
 
-pub use crate::rocket::auth::permissions::Permission;
+pub use crate::rocket::auth::permissions::{Permission, UserPermission};
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct SessionCookie {
+    pub(super) user_id: i64,
+}
+impl From<&Session> for SessionCookie {
+    fn from(value: &Session) -> Self {
+        Self {
+            user_id: value.user_id,
+        }
+    }
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Session {
     pub(super) user_id: i64,
-    pub(super) self_change_password: bool,
+    pub(super) user_permission: UserPermission,
     pub(super) permissions: std::collections::HashMap<String, Permission>,
 }
-macro_rules! refresh_permission {
-    ($ident:ident, $cookie_jar:ident, $domain:ident, $pool:ident) => {
-    match $ident.refresh_permissions($pool, $cookie_jar).await {
-        Ok(()) => {},
-        Err(err) => {
-            log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template($domain, crate::rocket::messages::GET_PERMISSION_ERROR)),
-            }));
-        }
-    }};
-}
-pub(in crate::rocket) use refresh_permission;
 impl Session{
     pub async fn refresh_permissions(&mut self, pool:&sqlx::postgres::PgPool, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
-        let v = sqlx::query!(r#"SELECT self_change_password AS "self_change_password!" FROM virtual_user_permission WHERE id = $1"#, self.user_id)
-            .fetch_one(pool).await?;
-        let self_change_password = v.self_change_password;
-        let session = Self::new(self.user_id, self_change_password, pool).await?;
+        let session = Self::new(self.user_id, pool).await?;
         match session.get_cookie() {
             Ok(v) => cookies.add_private(v),
             Err(err) => {
@@ -42,7 +37,6 @@ impl Session{
             }
         }
         self.permissions = session.permissions;
-        self.self_change_password = session.self_change_password;
         Ok(())
     }
     pub fn remove_cookie(cookies: &rocket::http::CookieJar<'_>) {
@@ -53,7 +47,8 @@ impl Session{
     }
 
     pub fn get_cookie(&self) -> anyhow::Result<rocket::http::Cookie<'static>> {
-        let json = match serde_json::to_vec(&self) {
+        let cookie = SessionCookie::from(self);
+        let json = match serde_json::to_vec(&cookie) {
             Ok(v) => v,
             Err(err) => {
 
@@ -81,13 +76,13 @@ impl Session{
     }
 
     #[inline] pub const fn get_user_id(&self) -> i64 { self.user_id }
-    #[inline] pub const fn get_self_change_password(&self) -> bool { self.self_change_password }
+    #[inline] pub const fn get_user_permission(&self) -> &UserPermission { &self.user_permission }
     #[inline] pub const fn get_permissions(&self) -> &std::collections::HashMap<String, Permission> { &self.permissions }
 }
 
 #[rocket::async_trait]
 impl<'r> rocket::request::FromRequest<'r> for Session{
-    type Error = ();
+    type Error = sqlx::Error;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let cookie = match request.cookies().get_private("email") {
@@ -95,7 +90,7 @@ impl<'r> rocket::request::FromRequest<'r> for Session{
             None => return Outcome::Forward(rocket::http::Status::Ok),
         };
 
-        let email:Session = {
+        let email:SessionCookie = {
             use base64::Engine;
             let bytes = match base64::engine::general_purpose::URL_SAFE.decode(cookie.value().as_bytes()) {
                 Ok(v) => v,
@@ -127,16 +122,19 @@ impl<'r> rocket::request::FromRequest<'r> for Session{
                 },
             }
         };
-
-        Outcome::Success(email)
+        let db = get_mysql().await;
+        match Self::new(email.user_id, db).await {
+            Ok(v) => Outcome::Success(v),
+            Err(err) => {
+                log::error!("Error creating session: {err}");
+                Outcome::Error((rocket::http::Status::InternalServerError, err))
+            }
+        }
     }
 }
 pub const HEADER:&str = const_format::formatcp!(
     r#"
         {LOGOUT}
-        <form action="/admin/refresh_session" method="POST">
-            <input type="submit" value="Refresh Permissions"></input>
-        </form>
         <a href="/admin/change_pw">Change Password</a>
         <a href="{WEBMAIL_DOMAIN}">Webmail</a>
     "#,

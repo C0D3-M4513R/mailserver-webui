@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR};
 use crate::rocket::response::{Return, TypedContent};
-use crate::rocket::auth::session::{refresh_permission, Session};
+use crate::rocket::auth::session::Session;
 
 mod private {
     use std::collections::HashMap;
@@ -17,32 +17,29 @@ mod private {
 pub async fn admin_domain_account_delete(
     session: Option<Session>,
     domain: &str,
-    user_id: i64,
-    cookie_jar: &'_ rocket::http::CookieJar<'_>,
+    user_id: i64
 ) -> Return {
     let mut accounts = std::collections::HashMap::new();
     accounts.insert(user_id, true);
-    admin_domain_accounts_delete(session, domain, ::rocket::form::Form::from(private::DeleteAccounts{accounts}), cookie_jar).await
+    admin_domain_accounts_delete(session, domain, ::rocket::form::Form::from(private::DeleteAccounts{accounts})).await
 }
 
 #[rocket::delete("/admin/<domain>/accounts", data="<data>")]
 pub async fn admin_domain_accounts_delete(
     session: Option<Session>,
     domain: &str,
-    data: ::rocket::form::Form<private::DeleteAccounts>,
-    cookie_jar: &'_ rocket::http::CookieJar<'_>,
+    data: ::rocket::form::Form<private::DeleteAccounts>
 ) -> Return {
     let unauth = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
         content: Cow::Owned(unauth_error(domain)),
     }));
-    let mut session = match session {
+    let session = match session {
         None => return unauth,
         Some(v) => v,
     };
 
     let pool = crate::get_mysql().await;
-    refresh_permission!(session, cookie_jar, domain, pool);
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,

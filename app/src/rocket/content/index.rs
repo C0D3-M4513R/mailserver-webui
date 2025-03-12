@@ -58,13 +58,11 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
     let mysql = crate::get_mysql().await;
 
     const ERROR:&str = const_format::concatcp!(HEAD, INCORRECT_PASSWORD, CONTENT, SETTINGS, TAIL);
-    let (user_id, self_change_pw) = match sqlx::query!(r#"
+    let user_id = match sqlx::query!(r#"
     SELECT
-        users.id as "id!",
-        COALESCE(user_perm.self_change_password, true) as "self_change_pw!"
+        users.id as "id!"
     FROM  virtual_users          users
     JOIN  virtual_domains        domains    ON users.domain_id = domains.id
-    LEFT JOIN user_permission   user_perm  ON user_perm.id = users.id
     WHERE users.email = $1 AND domains.name = $2"#, username, domain)
         .fetch_one(mysql)
         .await
@@ -90,14 +88,13 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
                     log::debug!("Error checking password: {err}");
                     return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, OTHER_PASSWORD_ISSUE, CONTENT, SETTINGS, TAIL)))
                 }
-                Ok(()) => (out.id, out.self_change_pw),
+                Ok(()) => out.id,
             }
         }
     };
 
     let session = match super::Session::new(
         user_id,
-        self_change_pw,
         mysql
     ).await {
         Ok(v) => v,

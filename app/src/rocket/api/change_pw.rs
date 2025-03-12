@@ -33,7 +33,7 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
             }));
         }
     }
-    if !session.get_self_change_password() {
+    if !session.get_user_permission().self_change_password() {
         return Return::Content((rocket::http::Status::Forbidden, TypedContent {
             content_type: rocket::http::ContentType::HTML,
             content: Cow::Borrowed(const_format::concatcp!(HEAD,SELF_CHANGE_PASSWORD_NO_PERM, TAIL))

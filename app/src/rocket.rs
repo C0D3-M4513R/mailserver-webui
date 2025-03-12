@@ -15,7 +15,6 @@ pub use api::{
     admin_domain_subdomains_put,
     admin_domain_subdomains_delete,
     logout_post,
-    post_refresh_session,
     admin_put_change_pw,
     admin_domain_name_put,
     admin_domain__accepts_email__put,
@@ -28,6 +27,7 @@ pub use content::{
     admin_domain_accounts_get, admin_domain_account_get,
     admin_domain_subdomains_get,
     admin_domain_permissions_get,
+    admin_domain_aliases_get,
     admin_domain_get,
     admin_get,
 };

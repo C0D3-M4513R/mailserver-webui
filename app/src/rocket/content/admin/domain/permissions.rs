@@ -53,8 +53,9 @@ SELECT
     perms.create_accounts, COALESCE(flat_perms.create_accounts, false) as "current_create_accounts!",
     perms.modify_accounts, COALESCE(flat_perms.modify_accounts, false) as "current_modify_accounts!",
     perms.delete_accounts, COALESCE(flat_perms.delete_accounts, false) as "current_delete_accounts!",
+    perms.list_alias, COALESCE(flat_perms.list_alias, false) as "current_list_alias!",
     perms.create_alias, COALESCE(flat_perms.create_alias, false) as "current_create_alias!",
-    perms.modify_alias, COALESCE(flat_perms.modify_alias, false) as "current_modify_alias!",
+    perms.delete_alias, COALESCE(flat_perms.delete_alias, false) as "current_delete_alias!",
     perms.list_permissions, COALESCE(flat_perms.list_permissions, false) as "current_list_permissions!",
     perms.manage_permissions, COALESCE(flat_perms.manage_permissions, false) as "current_manage_permissions!"
 FROM virtual_domains domains
@@ -87,8 +88,9 @@ WHERE domains.id = $1"#, permissions.domain_id())
                 let create_accounts = format_value(     "",        format!("users[{user_id}].value.create_accounts"),    v.create_accounts, v.current_create_accounts,     p_manage_perm && (p_admin || permissions.create_accounts()));
                 let modify_accounts = format_value(     "",        format!("users[{user_id}].value.modify_accounts"),    v.modify_accounts, v.current_modify_accounts,     p_manage_perm && (p_admin || permissions.modify_accounts()));
                 let delete_accounts = format_value(     "",        format!("users[{user_id}].value.delete_accounts"),    v.delete_accounts, v.current_delete_accounts,     p_manage_perm && (p_admin || permissions.delete_accounts()));
+                let list_alias = format_value(        "",           format!("users[{user_id}].value.list_alias"),             v.list_alias, v.current_list_alias,          p_manage_perm && (p_admin || permissions.list_alias()));
                 let create_alias = format_value(        "",           format!("users[{user_id}].value.create_alias"),       v.create_alias, v.current_create_alias,        p_manage_perm && (p_admin || permissions.create_alias()));
-                let modify_alias = format_value(        "",           format!("users[{user_id}].value.modify_alias"),       v.modify_alias, v.current_modify_alias,        p_manage_perm && (p_admin || permissions.modify_alias()));
+                let delete_alias = format_value(        "",           format!("users[{user_id}].value.delete_alias"),       v.delete_alias, v.current_delete_alias,        p_manage_perm && (p_admin || permissions.delete_alias()));
                 let list_permissions = format_value(    "",       format!("users[{user_id}].value.list_permissions"),   v.list_permissions, v.current_list_permissions,    p_manage_perm && (p_admin || permissions.list_permissions()));
                 let manage_permissions = format_value(  "",     format!("users[{user_id}].value.manage_permissions"), v.manage_permissions, v.current_manage_permissions,  p_manage_perm && (p_admin || permissions.manage_permissions()));
                 format!(r#"
@@ -103,8 +105,9 @@ WHERE domains.id = $1"#, permissions.domain_id())
     <td>{create_accounts}</td>
     <td>{modify_accounts}</td>
     <td>{delete_accounts}</td>
+    <td>{list_alias}</td>
     <td>{create_alias}</td>
-    <td>{modify_alias}</td>
+    <td>{delete_alias}</td>
     <td>{list_permissions}</td>
     <td>{manage_permissions}</td>
                 "#)
@@ -158,8 +161,9 @@ WHERE domains.id = $1"#, permissions.domain_id())
             <th>Create Accounts</th>
             <th>Modify Accounts</th>
             <th>Delete Accounts</th>
+            <th>List Alias</th>
             <th>Create Alias</th>
-            <th>Modify Alias</th>
+            <th>Delete Alias</th>
             <th>List Permissions:</th>
             <th>Manage Permissions</th>
         </tr>

@@ -2,11 +2,13 @@ pub mod accounts;
 pub mod account;
 pub mod subdomains;
 pub mod permissions;
+mod aliases;
 
 pub use account::admin_domain_account_get;
 pub use accounts::admin_domain_accounts_get;
 pub use subdomains::admin_domain_subdomains_get;
 pub use permissions::admin_domain_permissions_get;
+pub use aliases::admin_domain_aliases_get;
 
 use crate::rocket::auth::session::HEADER;
 use std::borrow::Cow;
@@ -37,16 +39,19 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
     let list_accounts;
     let list_permissions;
     let list_subdomain;
+    let list_aliases;
     match session.get_permissions().get(domain) {
         Some(v) => {
             list_permissions = v.admin() || v.list_permissions();
             list_accounts = v.admin() || v.list_accounts();
             list_subdomain = v.admin() || v.list_subdomain();
+            list_aliases = v.admin() || v.list_alias();
         }
         None => {
             list_permissions = false;
             list_accounts = false;
             list_subdomain = false;
+            list_aliases = false;
         }
     }
     let accounts = if list_accounts {
@@ -64,6 +69,11 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
     } else {
         String::new()
     };
+    let aliases = if list_aliases {
+        format!(r#"<a href="/admin/{domain}/aliases">Manage Aliases</a>"#)
+    } else {
+        String::new()
+    };
 
     format!(
         r#"
@@ -73,6 +83,7 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
                 {accounts}
                 {permissions}
                 {subdomain}
+                {aliases}
             </div>
         "#
     )

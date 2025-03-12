@@ -85,8 +85,9 @@ async fn main() -> anyhow::Result<()> {
             //Permissions
             rocket::admin_domain_permissions_get,
             rocket::admin_domain_permissions_put,
+            //Aliases
+            rocket::admin_domain_aliases_get,
 
-            rocket::post_refresh_session,
             rocket::admin_get_change_pw,
             rocket::admin_put_change_pw,
         ])
