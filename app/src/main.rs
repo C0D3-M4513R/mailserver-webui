@@ -78,6 +78,7 @@ async fn main() -> anyhow::Result<()> {
             rocket::admin_domain_account_password_put,
             rocket::admin_domain_account_user_permission_put,
             rocket::admin_domain_account_permissions_put,
+            rocket::admin_domain_account_aliases_delete,
             //Subdomain Overview
             rocket::admin_domain_subdomains_get,
             rocket::admin_domain_subdomains_put,

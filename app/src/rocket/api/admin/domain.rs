@@ -12,7 +12,7 @@ pub use delete_accounts::{admin_domain_accounts_delete, admin_domain_account_del
 pub use create_account::{create_account as admin_domain_accounts_put};
 pub use update_account::{admin_domain_account_email_put, admin_domain_account_password_put, admin_domain_account_user_permission_put, admin_domain_account_permissions_put};
 
-pub use delete_alias::{admin_domain_aliases_delete};
+pub use delete_alias::{admin_domain_aliases_delete, admin_domain_account_aliases_delete};
 pub use create_alias::{admin_domain_aliases_put};
 
 

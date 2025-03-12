@@ -114,6 +114,43 @@ WHERE users.email = $1 AND users.domain_id = $2
 {delete}
     "#);
 
+    let aliases = if permissions.admin() || permissions.list_alias() {
+        match sqlx::query!(r#"SELECT alias.id as "id!", alias.source || '@' || domains.name as "email!" FROM virtual_aliases alias
+    JOIN flattened_domains domains ON domains.id = alias.domain_id
+    WHERE destination = $1
+    "#, user_id).fetch_all(db).await
+        {
+            Ok(v) => {
+                let delete = if permissions.admin() || permissions.delete_alias() {
+                    r#"<input type="hidden" name="_method" value="DELETE"><input type="submit" value="Delete Selected Aliases">"#
+                } else {
+                    ""
+                };
+                let aliases = v.into_iter().map(|v| {
+                    let email = v.email;
+                    let id = v.id;
+                    format!(r#"<tr><td><input type="checkbox" name="aliases[{id}]" /></td><td><a>{email}</a></td></tr>"#)
+                }).reduce(|a, b| format!("{a}{b}")).unwrap_or_default();
+                format!(r#"
+                <h2>Aliases pointing to this Account:</h2>
+                <form method="POST" action="{user_name}/aliases">
+                {delete}
+                <table>
+                    <tr><th>Selected</th><th>Source</th></tr>
+                    {aliases}
+                </table></form>
+                "#)
+            },
+            Err(v) => {
+                log::error!("Error fetching aliases: {v}");
+                const ALIASES_ERR:&str = const_format::concatcp!("<h2>Aliases:</h2><p>", DATABASE_ERROR, "</p>");
+                ALIASES_ERR.to_string()
+            }
+        }
+    } else {
+        String::new()
+    };
+
     let domain_id = permissions.domain_id();
     let list_permissions = if permissions.admin() || permissions.list_permissions() {
         let p_admin = permissions.admin();
@@ -121,7 +158,7 @@ WHERE users.email = $1 AND users.domain_id = $2
 
         let admin = format_value(               "Admin: ",                  format!("users[{user_id}].value.admin"),                account.admin,                  account.current_admin,               p_manage_perm && (p_admin || permissions.admin()));
         let view_domain = format_value(         "View Domain: ",            format!("users[{user_id}].value.view_domain"),          account.view_domain,            account.current_view_domain,         p_manage_perm && (p_admin || permissions.view_domain()));
-        let modify_domain = format_value(         "Modify Domain: ",        format!("users[{user_id}].value.modify_domain"),    account.modify_domain,          account.current_modify_domain,         p_manage_perm && (p_admin || permissions.modify_domain()));
+        let modify_domain = format_value(         "Modify Domain: ",        format!("users[{user_id}].value.modify_domain"),        account.modify_domain,          account.current_modify_domain,         p_manage_perm && (p_admin || permissions.modify_domain()));
         let list_subdomain = format_value(      "List Subdomain: ",         format!("users[{user_id}].value.list_subdomain"),       account.list_subdomain,         account.current_list_subdomain,      p_manage_perm && (p_admin || permissions.list_subdomain()));
         let create_subdomain = format_value(    "Create Subdomain: ",       format!("users[{user_id}].value.create_subdomain"),     account.create_subdomain,       account.current_create_subdomain,    p_manage_perm && (p_admin || permissions.create_subdomain()));
         let delete_subdomain = format_value(    "Delete Subdomain: ",       format!("users[{user_id}].value.delete_subdomain"),     account.delete_subdomain,       account.current_delete_subdomain,    p_manage_perm && (p_admin || permissions.delete_subdomain()));
@@ -129,7 +166,7 @@ WHERE users.email = $1 AND users.domain_id = $2
         let create_accounts = format_value(     "Create Accounts: ",        format!("users[{user_id}].value.create_accounts"),      account.create_accounts,        account.current_create_accounts,     p_manage_perm && (p_admin || permissions.create_accounts()));
         let modify_accounts = format_value(     "Modify Accounts: ",        format!("users[{user_id}].value.modify_accounts"),      account.modify_accounts,        account.current_modify_accounts,     p_manage_perm && (p_admin || permissions.modify_accounts()));
         let delete_accounts = format_value(     "Delete Accounts: ",        format!("users[{user_id}].value.delete_accounts"),      account.delete_accounts,        account.current_delete_accounts,     p_manage_perm && (p_admin || permissions.delete_accounts()));
-        let list_alias = format_value(          "List Alias: ",           format!("users[{user_id}].value.list_alias"),           account.list_alias,             account.current_list_alias,          p_manage_perm && (p_admin || permissions.list_alias()));
+        let list_alias = format_value(          "List Alias: ",           format!("users[{user_id}].value.list_alias"),             account.list_alias,             account.current_list_alias,          p_manage_perm && (p_admin || permissions.list_alias()));
         let create_alias = format_value(        "Create Alias: ",           format!("users[{user_id}].value.create_alias"),         account.create_alias,           account.current_create_alias,        p_manage_perm && (p_admin || permissions.create_alias()));
         let delete_alias = format_value(        "Delete Alias: ",           format!("users[{user_id}].value.delete_alias"),         account.delete_alias,           account.current_delete_alias,        p_manage_perm && (p_admin || permissions.delete_alias()));
         let list_permissions = format_value(    "List Permissions: ",       format!("users[{user_id}].value.list_permissions"),     account.list_permissions,       account.current_list_permissions,    p_manage_perm && (p_admin || permissions.list_permissions()));
@@ -171,6 +208,7 @@ WHERE users.email = $1 AND users.domain_id = $2
     {header}
 <div id="account-mod-error">{error}</div>
 {account_info}
+{aliases}
 {list_permissions}
         "#).as_str())),
     }))
