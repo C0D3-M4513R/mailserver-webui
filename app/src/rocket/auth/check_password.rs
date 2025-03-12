@@ -86,11 +86,11 @@ pub async fn set_password(transaction: &mut sqlx::PgTransaction<'_>, user: Resul
     match match user {
         Ok(v) => {
             sqlx::query!("SELECT set_user_password($1, $2, '{ARGON2ID}', $3) as id", v, hash, slf_user_id)
-                .fetch_one(&mut **transaction).await.map(|v|v.id)
+                .fetch_optional(&mut **transaction).await.map(|v|v.map(|v|v.id).flatten())
         },
         Err((email, domain_id)) => {
             sqlx::query!("SELECT set_user_password(users.id, $3, '{ARGON2ID}', $4) as id FROM users WHERE users.email = $1 AND users.domain_id = $2 ", email, domain_id, hash, slf_user_id)
-                .fetch_one(&mut **transaction).await.map(|v|v.id)
+                .fetch_optional(&mut **transaction).await.map(|v|v.map(|v|v.id).flatten())
         }
     } {
         Ok(Some(_)) => Ok(()),

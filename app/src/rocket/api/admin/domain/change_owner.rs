@@ -35,18 +35,13 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
         return no_perm;
     }
 
-    match sqlx::query!(r#"SELECT change_domain_owner($1, $2, $3) as id;"#, permission.domain_id(), data.owner, session.get_user_id()).fetch_one(pool).await {
-        Ok(v) => {
-            match v.id {
-                Some(_) => {},
-                None => {
-                    return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                        content_type: rocket::http::ContentType::HTML,
-                        content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-                    }));
-                }
-            }
-        },
+    match sqlx::query!(r#"SELECT change_domain_owner($1, $2, $3) as id;"#, permission.domain_id(), data.owner, session.get_user_id())
+        .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+        Ok(Some(_)) => {},
+        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+        })),
         Err(err) => {
             log::error!("Error creating subdomain: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;

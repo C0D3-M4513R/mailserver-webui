@@ -50,17 +50,13 @@ pub async fn admin_domain_aliases_put(
     }
 
     match sqlx::query!("
-SELECT insert_new_alias($1, $2, $3, $4) as id
-", permission.domain_id(), data.source,  data.user, session.get_user_id()).fetch_one(pool).await {
-        Ok(v) => match v.id {
-            Some(_) => {},
-            None => {
-                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                    content_type: rocket::http::ContentType::HTML,
-                    content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-                }));
-            }
-        },
+SELECT insert_new_alias($1, $2, $3, $4) as id", permission.domain_id(), data.source,  data.user, session.get_user_id())
+    .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+        Ok(Some(_)) => {},
+        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+        })),
         Err(err) => {
             log::error!("Error creating account: {err}");
             let mut result = admin_domain_aliases_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;

@@ -66,16 +66,15 @@ pub async fn create_account(
         },
         Ok(v) => v,
     };
-    let id = match sqlx::query!("SELECT insert_new_account($1, $2, $3, '{ARGON2ID}', $4) as id", permission.domain_id(), data.email, hash, session.get_user_id()).fetch_one(&mut *transaction).await {
-        Ok(v) => match v.id {
-            Some(v) => v,
-            None => {
-                log::error!("Error creating account: DB permission check failed");
-                let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_PERMISSION_ERROR)).await;
-                result.override_status(rocket::http::Status::Forbidden);
-                return result;
-            }
-        }
+    let id = match sqlx::query!("SELECT insert_new_account($1, $2, $3, '{ARGON2ID}', $4) as id", permission.domain_id(), data.email, hash, session.get_user_id())
+        .fetch_optional(&mut *transaction).await {
+        Ok(Some(v)) => v,
+        Ok(None) => {
+            log::error!("Error creating account: DB permission check failed");
+            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_PERMISSION_ERROR)).await;
+            result.override_status(rocket::http::Status::Forbidden);
+            return result;
+        },
         Err(err) => {
             log::error!("Error creating account: {err}");
             let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;

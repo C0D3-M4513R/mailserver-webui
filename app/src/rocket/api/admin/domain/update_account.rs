@@ -60,17 +60,12 @@ pub async fn admin_domain_account_email_put(
 
     match sqlx::query!("SELECT set_user_email(users.id, $1, $2) as id from users WHERE email = $3 AND domain_id = $4",
         data.email, session.get_user_id(), user_name, permission.domain_id())
-        .fetch_one(pool).await
-    {
-        Ok(v) => match v.id {
-            None => {
-                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                    content_type: rocket::http::ContentType::HTML,
-                    content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-                }));
-            },
-            Some(_) => {},
-        }
+        .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+        Ok(Some(_)) => {},
+        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+            content_type: rocket::http::ContentType::HTML,
+            content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+        })),
         Err(err) => {
             log::error!("Error updating account: {err}");
             let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;

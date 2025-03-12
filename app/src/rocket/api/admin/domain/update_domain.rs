@@ -48,18 +48,13 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
         }));
     }
 
-    match sqlx::query!("SELECT change_domain_name($1, $2, $3) as id", permission.domain_id(), data.name, session.get_user_id()).fetch_one(pool).await {
-        Ok(v) => {
-            match v.id {
-                Some(_) => {},
-                None => {
-                    return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                        content_type: rocket::http::ContentType::HTML,
-                        content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-                    }));
-                }
-            }
-        },
+    match sqlx::query!("SELECT change_domain_name($1, $2, $3) as id", permission.domain_id(), data.name, session.get_user_id())
+    .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+        Ok(Some(_)) => {},
+        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+            })),
         Err(err) => {
             log::error!("Error changing domain name: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
@@ -68,8 +63,7 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
         }
     };
 
-    let domain = data.name;
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}")))
+    Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/admin")))
 }
 #[rocket::put("/admin/<domain>/accepts_email", data = "<data>")]
 #[allow(non_snake_case)]
@@ -96,18 +90,13 @@ pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: 
         return no_perm;
     }
 
-    match sqlx::query!("SELECT change_domain_accepts_email($1, $2, $3) as id", permission.domain_id(), data.accepts_email, session.get_user_id()).fetch_one(pool).await {
-        Ok(v) => {
-            match v.id {
-                Some(_) => {},
-                None => {
-                    return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                        content_type: rocket::http::ContentType::HTML,
-                        content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-                    }));
-                }
-            }
-        },
+    match sqlx::query!("SELECT change_domain_accepts_email($1, $2, $3) as id", permission.domain_id(), data.accepts_email, session.get_user_id())
+        .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+        Ok(Some(_)) => {},
+        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                content_type: rocket::http::ContentType::HTML,
+                content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+            })),
         Err(err) => {
             log::error!("Error changing domain name: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;

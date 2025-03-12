@@ -9,19 +9,24 @@ mod private {
     use std::collections::HashMap;
 
     #[derive(Debug, rocket::form::FromForm)]
+    pub struct AccountId {
+        pub id: i64
+    }
+
+    #[derive(Debug, rocket::form::FromForm)]
     pub struct AccountSelection {
         pub accounts: HashMap<i64, bool>,
     }
 }
 
-#[rocket::delete("/admin/<domain>/accounts/<user_id>")]
+#[rocket::delete("/admin/<domain>/accounts/<_>", data="<data>")]
 pub async fn admin_domain_account_delete(
     session: Option<Session>,
     domain: &str,
-    user_id: i64
+    data: ::rocket::form::Form<private::AccountId>
 ) -> Return {
     let mut accounts = std::collections::HashMap::new();
-    accounts.insert(user_id, true);
+    accounts.insert(data.id, true);
     admin_domain_accounts_delete(session, domain, ::rocket::form::Form::from(private::AccountSelection {accounts})).await
 }
 
