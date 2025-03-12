@@ -58,7 +58,8 @@ SELECT
 FROM virtual_users users
 LEFT JOIN web_domain_permissions target_perms ON target_perms.user_id = users.id AND target_perms.domain_id = users.domain_id
 LEFT JOIN user_permission user_perm ON users.id = user_perm.id
-JOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = users.domain_id AND flat_perms.user_id = users.id
+JOIN domains ON domains.id = users.domain_id
+JOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = domains.super AND flat_perms.user_id = users.id
 WHERE users.email = $1 AND users.domain_id = $2
 "#, user_name, permissions.domain_id())
         .fetch_one(db)
@@ -81,8 +82,9 @@ WHERE users.email = $1 AND users.domain_id = $2
         "disabled"
     };
 
+    let user_id = account.id;
     let delete = if permissions.admin() || permissions.delete_accounts() {
-        format!(r#"<form method="POST"><input type="hidden" name="_method" value="DELETE"><input type="submit" value="Disable Account"></form>"#)
+        format!(r#"<form method="POST" action="/admin/{domain}/accounts/{user_name}"><input type="hidden" name="_method" value="DELETE"><input type="hidden" name="id" value="{user_id}"><input type="submit" value="Disable Account"></form>"#)
     } else {
         String::new()
     };
@@ -93,20 +95,19 @@ WHERE users.email = $1 AND users.domain_id = $2
         ""
     };
 
-    let user_id = account.id;
     let account_info = format!(r#"
 <h2>Account Information:</h2>
-<form method="POST" action="{user_name}/email">
+<form method="POST" action="/admin/{domain}/accounts/{user_name}/email">
     <input type="hidden" name="_method" value="PUT" />
     <label>Email: <a><input type="text" name="email" value="{user_name}" {modify_account} />@{domain}</a></label>
     <input type="submit" name="action" value="Update Email" {modify_account}/>
 </form>
-<form method="POST" action="{user_name}/password">
+<form method="POST" action="/admin/{domain}/accounts/{user_name}/password">
     <input type="hidden" name="_method" value="PUT" />
     <label>Password: <input type="password" name="password" {modify_account} /></label>
     <input type="submit" value="Update Password" {modify_account}/>
 </form>
-<form method="Post" action="{user_name}/user_permission">
+<form method="Post" action="/admin/{domain}/accounts/{user_name}/user_permission">
     <input type="hidden" name="_method" value="PUT" />
     <label>Allow user to Change their Password themselves: <input type="checkbox" name="self_change_password" {self_change_password} {modify_account} /></label>
     <input type="submit" value="Update User Permission" {modify_account}/>
@@ -133,7 +134,7 @@ WHERE users.email = $1 AND users.domain_id = $2
                 }).reduce(|a, b| format!("{a}{b}")).unwrap_or_default();
                 format!(r#"
                 <h2>Aliases pointing to this Account:</h2>
-                <form method="POST" action="{user_name}/aliases">
+                <form method="POST" action="/admin/{domain}/accounts/{user_name}/aliases">
                 {delete}
                 <table>
                     <tr><th>Selected</th><th>Source</th></tr>
@@ -174,7 +175,7 @@ WHERE users.email = $1 AND users.domain_id = $2
         format!(r#"
 <h2>Permissions:</h2>
 <p>Notice: Without List permissions, Modification permissions are useless. Also, Modification permission imply Delete permissions</p>
-<form method="POST" action="{user_name}/permissions" onsubmit="(event)=>event.target.reset()">
+<form method="POST" action="/admin/{domain}/accounts/{user_name}/permissions" onsubmit="(event)=>event.target.reset()">
     <input type="hidden" name="_method" value="PUT"/>
     <input type="hidden" name="users[{user_id}].enabled" value="on"/>
     <input type="hidden" name="domain_id" value="{domain_id}"/>
