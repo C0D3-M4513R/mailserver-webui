@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT alias.id as \"id!\", alias.source || '@' || domains.name as \"email!\" FROM virtual_aliases alias\n    JOIN flattened_domains domains ON domains.id = alias.domain_id\n    WHERE destination = $1\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "email!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "9cee5b30c73e4ca26cc669fa6274aca631937e5f4ab893cd29153d65b8f2e47c"
+}
