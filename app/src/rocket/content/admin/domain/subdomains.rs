@@ -45,7 +45,7 @@ FROM domains
 JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id AND permissions.user_id = $2
 WHERE
     ( $2 = domains.domain_owner OR permissions.view_domain OR permissions.admin) AND
-    $1 = domains.super"#, permissions.domain_id(), session.get_user_id())
+    $1 = domains.super AND domains.deleted = false"#, permissions.domain_id(), session.get_user_id())
         .fetch_all(db)
         .await
     {
@@ -92,7 +92,7 @@ WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_i
                         r#"<button type="submit" formaction="subdomains/delete">Permanently Delete Selected Domains</button>"#
                     } else { "" };
                     let undelete = if permissions.admin() || permissions.undelete() {
-                        r#"<button type="submit" formaction="subdomains/restore">Restore Selected Domains</button>"#
+                        r#"<button type="submit" formaction="subdomains/recover">Recover Selected Domains</button>"#
                     } else { "" };
                     format!(r#"<h2>Disabled Subdomains</h2>
 <form method="POST">{undelete}{delete}<table>
@@ -137,7 +137,7 @@ WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_i
 <h2>Existing Subdomains:</h2>
 <form method="POST">
 <input type="hidden" name="_method" value="DELETE" />
-<input type="submit" value="Delete Selected Subdomains" />
+<input type="submit" value="Disable Selected Subdomains" />
     <table>
         <tr>
             <th></th>
