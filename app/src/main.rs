@@ -71,6 +71,8 @@ async fn main() -> anyhow::Result<()> {
             rocket::admin_domain_accounts_get,
             rocket::admin_domain_accounts_put,
             rocket::admin_domain_accounts_delete,
+            rocket::admin_domain_accounts_delete_post,
+            rocket::admin_domain_accounts_restore_post,
             //Single-Account Stuff
             rocket::admin_domain_account_get,
             rocket::admin_domain_account_delete,
@@ -83,6 +85,8 @@ async fn main() -> anyhow::Result<()> {
             rocket::admin_domain_subdomains_get,
             rocket::admin_domain_subdomains_put,
             rocket::admin_domain_subdomains_delete,
+            rocket::admin_domain_subdomains_delete_post,
+            rocket::admin_domain_subdomains_recover_post,
             //Permissions
             rocket::admin_domain_permissions_get,
             rocket::admin_domain_permissions_put,

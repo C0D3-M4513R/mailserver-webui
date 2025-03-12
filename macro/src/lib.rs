@@ -35,7 +35,10 @@ perms!(_impl,
     create_alias,
     delete_alias,
     list_permissions,
-    manage_permissions;
+    manage_permissions,
+    list_deleted,
+    undelete,
+    delete_disabled;
     self_change_password
 )
     };
@@ -96,7 +99,8 @@ r#"     domains.name as "domain!",
         perm.domain_id as "domain_id!",
         domains.accepts_email as "domain_accepts_email!",
         domains.level as "domain_level!",
-        perm.user_id = ANY(domains.domain_owner) as "is_owner!"
+        perm.user_id = domains.domain_owner[1] as "is_owner!",
+        COALESCE(perm.user_id = domains.domain_owner[2], false) as "super_owner!"
 FROM flattened_web_domain_permissions perm
 JOIN virtual_domains domains ON domains.id = perm.domain_id
         WHERE perm.user_id = $1"#);
@@ -112,6 +116,7 @@ JOIN virtual_domains domains ON domains.id = perm.domain_id
 pub struct Permission {
     domain_id: i64,
     is_owner: bool,
+    super_owner: bool,
     domain_accepts_email: bool,
     domain_level: i64,
     $($ident : bool,)*
@@ -139,6 +144,7 @@ impl Session{
         let permissions = permissions.into_iter().map(|v|
             (v.domain, Permission::new(
                 v.domain_id,
+                v.super_owner,
                 v.is_owner,
                 v.domain_accepts_email,
                 v.domain_level,
@@ -156,8 +162,9 @@ impl Session{
     }
 }
 impl Permission {
-    pub const fn new(
+    pub(super) const fn new(
         domain_id: i64,
+        super_owner: bool,
         is_owner: bool,
         domain_accepts_email: bool,
         domain_level: i64,
@@ -165,6 +172,7 @@ impl Permission {
     ) -> Self {
         Self {
             domain_id,
+            super_owner,
             is_owner,
             domain_accepts_email,
             domain_level,
@@ -172,7 +180,8 @@ impl Permission {
         }
     }
     #[inline] pub const fn domain_id(&self) -> i64 { self.domain_id }
-    #[inline] pub const fn is_owner(&self) -> bool { self.is_owner }
+    #[inline] pub const fn super_owner(&self) -> bool { self.super_owner }
+    #[inline] pub const fn is_owner(&self) -> bool { self.super_owner() || self.is_owner }
     #[inline] pub const fn domain_accepts_email(&self) -> bool { self.domain_accepts_email }
     #[inline] pub const fn domain_level(&self) -> i64 { self.domain_level }
     $(    #[inline] pub const fn $ident(&self) -> bool { self.is_owner() || self.$ident })*

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{template, unauth_error};
-use crate::rocket::messages::{ALIAS_INVALID_CHARS, CREATE_ALIAS_NO_PERM, DATABASE_ERROR};
+use crate::rocket::messages::{ALIAS_INVALID_CHARS, CREATE_ALIAS_NO_PERM, DATABASE_ERROR, DATABASE_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 use crate::rocket::content::admin::domain::aliases::admin_domain_aliases_get_impl;
@@ -50,13 +50,17 @@ pub async fn admin_domain_aliases_put(
     }
 
     match sqlx::query!("
-WITH valid_values AS (
-    SELECT $1::text as src, target.id FROM virtual_users target
-        JOIN flattened_web_domain_permissions perms ON perms.domain_id = target.domain_id AND perms.user_id = $4
-        WHERE target.id = $3 AND (perms.is_owner OR perms.admin OR perms.list_accounts)
-) INSERT INTO virtual_aliases (source, domain_id, destination) SELECT src, $2, id FROM valid_values
-", data.source, permission.domain_id(), data.user, session.get_user_id()).execute(pool).await {
-        Ok(_) => {},
+SELECT insert_new_alias($1, $2, $3, $4) as id
+", permission.domain_id(), data.source,  data.user, session.get_user_id()).fetch_one(pool).await {
+        Ok(v) => match v.id {
+            Some(_) => {},
+            None => {
+                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                    content_type: rocket::http::ContentType::HTML,
+                    content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+                }));
+            }
+        },
         Err(err) => {
             log::error!("Error creating account: {err}");
             let mut result = admin_domain_aliases_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;

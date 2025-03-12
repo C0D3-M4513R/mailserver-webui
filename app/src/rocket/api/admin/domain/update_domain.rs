@@ -63,6 +63,7 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
         }
     };
 
+    let domain = data.name;
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}")))
 }
 #[rocket::put("/admin/<domain>/accepts_email", data = "<data>")]

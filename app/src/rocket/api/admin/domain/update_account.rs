@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use crate::rocket::auth::check_password::set_password;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::account::admin_domain_account_get_impl;
-use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
+use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, DATABASE_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 use crate::rocket::auth::permissions::{UpdatePermissions};
@@ -58,17 +58,18 @@ pub async fn admin_domain_account_email_put(
         return no_perm;
     }
 
-    match sqlx::query!("UPDATE virtual_users SET email = $1 WHERE email = $2 AND domain_id = $3 RETURNING id", data.email, user_name, permission.domain_id())
+    match sqlx::query!("SELECT set_user_email(users.id, $1, $2) as id from users WHERE email = $3 AND domain_id = $4",
+        data.email, session.get_user_id(), user_name, permission.domain_id())
         .fetch_one(pool).await
     {
         Ok(v) => match v.id {
             None => {
-                // User not found or User deleted
+                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                    content_type: rocket::http::ContentType::HTML,
+                    content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+                }));
             },
-            Some(v) => {
-                if v == session.get_user_id() {
-                                    }
-            },
+            Some(_) => {},
         }
         Err(err) => {
             log::error!("Error updating account: {err}");
@@ -236,9 +237,6 @@ pub async fn admin_domain_account_permissions_put(
             return err;
         }
     };
-
-    if data.users.contains_key(&session.get_user_id()) {
-            }
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
 }

@@ -82,7 +82,7 @@ WHERE users.email = $1 AND users.domain_id = $2
     };
 
     let delete = if permissions.admin() || permissions.delete_accounts() {
-        format!(r#"<form method="POST"><input type="hidden" name="_method" value="DELETE"><input type="submit" value="Delete Account"></form>"#)
+        format!(r#"<form method="POST"><input type="hidden" name="_method" value="DELETE"><input type="submit" value="Disable Account"></form>"#)
     } else {
         String::new()
     };

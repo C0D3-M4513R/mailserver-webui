@@ -6,6 +6,8 @@ mod content;
 
 pub use api::{
     admin_domain_accounts_delete,
+    admin_domain_accounts_delete_post,
+    admin_domain_accounts_restore_post,
     admin_domain_account_delete,
     admin_domain_account_email_put,
     admin_domain_account_password_put,
@@ -15,6 +17,8 @@ pub use api::{
     admin_domain_accounts_put,
     admin_domain_subdomains_put,
     admin_domain_subdomains_delete,
+    admin_domain_subdomains_delete_post,
+    admin_domain_subdomains_recover_post,
     admin_domain_aliases_delete,
     admin_domain_aliases_put,
     logout_post,

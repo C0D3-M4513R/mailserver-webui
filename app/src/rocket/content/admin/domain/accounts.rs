@@ -66,6 +66,48 @@ WHERE users.domain_id = $1"#, permissions.domain_id())
             }));
         }
     };
+    let deleted_accounts = if permissions.admin() || permissions.list_deleted() {
+        match sqlx::query!(r#"
+SELECT
+    users.id AS "id!",
+    users.email AS "email!"
+FROM users
+WHERE users.domain_id = $1 AND deleted = true"#, permissions.domain_id())
+            .fetch_all(db)
+            .await
+        {
+            Ok(v) => {
+                if v.is_empty() {
+                    String::new()
+                } else {
+                    let deleted_accounts = v.into_iter().map(|v|{
+                        let id = v.id;
+                        let email = v.email;
+                        let full_email = format!("{email}@{domain}");
+
+                        format!(r#"<tr><td><input class="account-select" type="checkbox" name="accounts[{id}]"/></td><td>{full_email}</td></tr>"#)
+                    }).fold(String::new(), |a,b|format!("{a}{b}"));
+                    format!(r#"<h2>Disabled Accounts:</h2>
+                    <form method="POST">
+                    <button type="submit" formaction="accounts/restore">Restore Selected Accounts</button>
+                    <button type="submit" formaction="accounts/delete">Permanently Delete Selected Accounts</button>
+                    <table>
+                        <tr><th>Selected</th><th>Email</th></tr>
+                    {deleted_accounts}
+                    </table></form>
+                    "#)
+                }
+            },
+            Err(err) => {
+
+                log::error!("Error fetching deleted accounts: {err}");
+                const DISABLED_ACCOUNTS_DB_ERROR:&str = const_format::concatcp!("<h2>Disabled Accounts:</h2><p>", DATABASE_ERROR, "</p>");
+                DISABLED_ACCOUNTS_DB_ERROR.to_string()
+            }
+        }
+    } else {
+        String::new()
+    };
 
     let new_account = if permissions.admin() || permissions.create_accounts() {
         format!(r#"<h2>Create new Account:</h2>
@@ -80,7 +122,7 @@ WHERE users.domain_id = $1"#, permissions.domain_id())
     };
 
     let delete = if permissions.admin() || permissions.delete_accounts(){
-        r#"<input type="hidden" name="_method" value="DELETE" /><input type="submit" value="Delete Selected Accounts" />"#
+        r#"<input type="hidden" name="_method" value="DELETE" /><input type="submit" value="Disable Selected Accounts" />"#
     } else {
         ""
     };
@@ -92,6 +134,7 @@ WHERE users.domain_id = $1"#, permissions.domain_id())
     {header}
 <div id="account-mod-error">{error}</div>
 {new_account}
+<table><tr><td>
 <h2>Existing Accounts:</h2>
 <form method="POST">
 {delete}
@@ -104,6 +147,7 @@ WHERE users.domain_id = $1"#, permissions.domain_id())
         {accounts}
     </table>
 </form>
+</td><td>{deleted_accounts}</td></tr></table>
         "#).as_str())),
     }))
 }

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
-use crate::rocket::messages::{SUBDOMAIN_INVALID_CHARS, CREATE_SUBDOMAIN_NO_PERM, DATABASE_ERROR};
+use crate::rocket::messages::{SUBDOMAIN_INVALID_CHARS, CREATE_SUBDOMAIN_NO_PERM, DATABASE_ERROR, DATABASE_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 
@@ -46,9 +46,20 @@ pub async fn admin_domain_subdomains_put(
         }));
     }
 
-    match sqlx::query!("INSERT INTO domains (name, super, domain_owner) VALUES ($1, $2, (SELECT domain_owner FROM domains WHERE id = $2))", data.name, permission.domain_id())
-        .execute(pool).await {
-        Ok(_) => {},
+
+    match sqlx::query!("SELECT insert_subdomain($1::bigint, $2::text, $3::bigint) as id",
+        permission.domain_id(), data.name, session.get_user_id()
+    )
+        .fetch_one(pool).await {
+        Ok(v) => match v.id {
+            Some(_) => {},
+            None => {
+                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                    content_type: rocket::http::ContentType::HTML,
+                    content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+                }));
+            }
+        },
         Err(err) => {
             log::error!("Error creating subdomain: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
@@ -56,6 +67,5 @@ pub async fn admin_domain_subdomains_put(
             return result;
         }
     };
-
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/subdomains")))
 }

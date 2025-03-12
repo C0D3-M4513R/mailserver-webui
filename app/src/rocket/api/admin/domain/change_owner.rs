@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
-use crate::rocket::messages::{DATABASE_ERROR, OWNER_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, DATABASE_PERMISSION_ERROR, OWNER_DOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 
@@ -35,18 +35,16 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
         return no_perm;
     }
 
-    match sqlx::query!(r#"
-UPDATE domains
-SET domain_owner = $1
-FROM virtual_users users, flattened_domains, flattened_web_domain_permissions slf_perms
-WHERE
-    users.id = $1 AND slf_perms.user_id = $2 AND domains.id = $3 AND
-    flattened_domains.id = domains.id AND slf_perms.domain_id = domains.id AND
-    (slf_perms.user_id = ANY(flattened_domains.domain_owner) OR slf_perms.admin OR slf_perms.list_accounts)
-"#, data.owner, session.get_user_id(), permission.domain_id()).execute(pool).await {
+    match sqlx::query!(r#"SELECT change_domain_owner($1, $2, $3) as id;"#, permission.domain_id(), data.owner, session.get_user_id()).fetch_one(pool).await {
         Ok(v) => {
-            if v.rows_affected() != 1 {
-                log::debug!("Tried to update domain owner, but no rows were changed?");
+            match v.id {
+                Some(_) => {},
+                None => {
+                    return Return::Content((rocket::http::Status::Forbidden, TypedContent{
+                        content_type: rocket::http::ContentType::HTML,
+                        content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
+                    }));
+                }
             }
         },
         Err(err) => {

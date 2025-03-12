@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashSet;
 use rocket::response::Redirect;
 use crate::rocket::content::admin::domain::{template, unauth_error};
 use crate::rocket::messages::{DATABASE_ERROR, DELETE_ALIAS_NO_PERM};
@@ -20,7 +21,7 @@ pub async fn admin_domain_aliases_delete(
     domain: &str,
     data: ::rocket::form::Form<private::DeleteAliases>,
 ) -> Return {
-    admin_domain_aliases_delete_impl(session, domain, None, data, Redirect::to(format!("/admin/{domain}/aliases"))).await
+    admin_domain_aliases_delete_impl(session, domain, data, Redirect::to(format!("/admin/{domain}/aliases"))).await
 }
 #[rocket::delete("/admin/<domain>/accounts/<account_name>/aliases", data="<data>")]
 pub async fn admin_domain_account_aliases_delete(
@@ -29,13 +30,12 @@ pub async fn admin_domain_account_aliases_delete(
     account_name: &str,
     data: ::rocket::form::Form<private::DeleteAliases>,
 ) -> Return {
-    admin_domain_aliases_delete_impl(session, domain, Some(account_name), data, Redirect::to(format!("/admin/{domain}/accounts/{account_name}"))).await
+    admin_domain_aliases_delete_impl(session, domain, data, Redirect::to(format!("/admin/{domain}/accounts/{account_name}"))).await
 }
 
 async fn admin_domain_aliases_delete_impl(
     session: Option<Session>,
     domain: &str,
-    account_name: Option<&str>,
     data: ::rocket::form::Form<private::DeleteAliases>,
     success_redirect: Redirect
 ) -> Return {
@@ -68,17 +68,25 @@ async fn admin_domain_aliases_delete_impl(
     }));
 
     let alias_ids = data.into_inner().aliases.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
-    match sqlx::query!(r#"
-DELETE FROM virtual_aliases alias
-       USING users
-       WHERE alias.id = ANY($1) AND users.id = alias.destination AND users.domain_id = $2 AND
-            ($3::text IS NULL OR $3::text = users.email)
-        "#,
+    match sqlx::query!(r#"SELECT delete_alias($1, $2) as id"#,
         &alias_ids,
-        permissions.domain_id(),
-        account_name
-    ).execute(pool).await {
-        Ok(_) => Return::Redirect(success_redirect),
+        session.get_user_id()
+    ).fetch_all(pool).await {
+        Ok(v) => {
+            let aliases = HashSet::from_iter(alias_ids.iter().copied());
+            let processed_aliases = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();
+            if aliases.len() != processed_aliases.len() {
+                let not_recovered = aliases.difference(&processed_aliases).collect::<Vec<_>>();
+                let extra_recovered = processed_aliases.difference(&aliases).collect::<Vec<_>>();
+                if not_recovered.len() > 0 {
+                    log::warn!("Error deleting aliases. User {} tried deleting aliases {not_recovered:?}, for which he didn't have permission", session.get_user_id());
+                }
+                if extra_recovered.len() > 0 {
+                    log::error!("Error deleting aliases. User {} tried deleting aliases {alias_ids:?}, but we additionally recovered {extra_recovered:?} ", session.get_user_id());
+                }
+            }
+            Return::Redirect(success_redirect)
+        },
         Err(err) => {
             log::error!("Error deleting alias: {err}");
             db_error
