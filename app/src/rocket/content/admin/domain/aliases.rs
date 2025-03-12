@@ -36,7 +36,7 @@ pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: Option<Ses
     }
 
     let db = crate::get_mysql().await;
-    let accounts = match sqlx::query!(r#"
+    let aliases = match sqlx::query!(r#"
 SELECT
     alias.id AS "id!",
     alias.source AS "source!",
@@ -95,7 +95,7 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
 <form method="POST">
     <input type="hidden" name="_method" value="PUT" />
     <label>Source: <a></a><input type="text" name="source" pattern="[a-zA-Z0-9]+" {has_err}/>@{domain}</a></label><br>
-    <label>Target: <a><select name="domain" {has_err}>{destination}</select></label><br>
+    <label>Target: <a><select name="user" {has_err}>{destination}</select></label><br>
     <input type="submit" value="Add Alias" {has_err} />
 </form>"#)
     } else {
@@ -125,7 +125,7 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
             <th>Source</th>
             <th>Target</th>
         </tr>
-        {accounts}
+        {aliases}
     </table>
 </form>
         "#).as_str())),

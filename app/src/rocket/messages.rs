@@ -10,6 +10,11 @@ pub const DELETE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to dele
 pub const MODIFY_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to modify accounts."#;
 pub const ACCOUNT_INVALID_CHARS:&str = r#"The account name you entered was invalid."#;
 
+pub const CREATE_ALIAS_NO_PERM:&str = r#"You don't have the permission to create aliases."#;
+pub const DELETE_ALIAS_NO_PERM:&str = r#"You don't have the permission to delete aliases."#;
+pub const ALIAS_INVALID_CHARS:&str = r#"The alias name you entered was invalid."#;
+
+
 pub const VIEW_DOMAIN_NO_PERM:&str = r#"You don't have the permission to view this domain."#;
 
 pub const LIST_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to list subdomains."#;

@@ -2,7 +2,7 @@ pub mod accounts;
 pub mod account;
 pub mod subdomains;
 pub mod permissions;
-mod aliases;
+pub mod aliases;
 
 pub use account::admin_domain_account_get;
 pub use accounts::admin_domain_accounts_get;
