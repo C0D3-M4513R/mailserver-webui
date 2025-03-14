@@ -40,8 +40,9 @@ pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<
     let domains = match sqlx::query!(r#"
 SELECT
     domains.id AS "id!",
-    domains.name AS "name!"
+    flattened_domains.name AS "name!"
 FROM domains
+JOIN flattened_domains ON flattened_domains.id = domains.id
 JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id AND permissions.user_id = $2
 WHERE
     ( $2 = domains.domain_owner OR permissions.view_domain OR permissions.admin) AND
