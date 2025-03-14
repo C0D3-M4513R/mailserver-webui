@@ -13,7 +13,7 @@ pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
     }).await
 }
 
-#[tokio::main]
+#[::rocket::main]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv()?;
     {
