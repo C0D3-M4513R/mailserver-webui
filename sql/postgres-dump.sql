@@ -55,6 +55,213 @@ COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
+-- Name: change_domain_accepts_email(bigint, boolean, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.change_domain_accepts_email(domain_id bigint, accepts_email boolean, self_user_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT change_domain_accepts_email.domain_id as id FROM flattened_web_domain_permissions perms
+    WHERE
+        perms.user_id = change_domain_accepts_email.self_user_id AND change_domain_accepts_email.domain_id = perms.domain_id AND
+        (perms.is_owner OR perms.admin OR (perms.modify_domain AND perms.view_domain))
+) UPDATE domains SET accepts_email = change_domain_accepts_email.accepts_email FROM valid_values WHERE domains.id = valid_values.id AND domains.deleted = false RETURNING domains.id
+$$;
+
+
+ALTER FUNCTION public.change_domain_accepts_email(domain_id bigint, accepts_email boolean, self_user_id bigint) OWNER TO postgres;
+
+--
+-- Name: change_domain_name(bigint, text, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.change_domain_name(domain_id bigint, name text, self_user_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT change_domain_name.domain_id as id FROM flattened_web_domain_permissions perms
+    WHERE
+        perms.user_id = change_domain_name.self_user_id AND change_domain_name.domain_id = perms.domain_id AND
+        perms.is_owner OR perms.admin OR (perms.modify_domain AND perms.view_domain)
+) UPDATE domains SET name = change_domain_name.name FROM valid_values WHERE domains.id = valid_values.id AND domains.deleted = false RETURNING domains.id
+$$;
+
+
+ALTER FUNCTION public.change_domain_name(domain_id bigint, name text, self_user_id bigint) OWNER TO postgres;
+
+--
+-- Name: change_domain_owner(bigint, bigint, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.change_domain_owner(domain_id bigint, new_owner_id bigint, self_user_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT change_domain_owner.domain_id as id FROM users
+           JOIN flattened_web_domain_permissions self_perms ON self_perms.user_id = change_domain_owner.self_user_id AND change_domain_owner.domain_id = self_perms.domain_id
+    WHERE users.id = change_domain_owner.new_owner_id AND users.deleted = false AND
+          (self_perms.is_owner OR self_perms.super_owner)
+) UPDATE domains SET domain_owner = change_domain_owner.new_owner_id FROM valid_values 
+    WHERE domains.id = change_domain_owner.domain_id AND domains.deleted = false
+    RETURNING domains.id
+$$;
+
+
+ALTER FUNCTION public.change_domain_owner(domain_id bigint, new_owner_id bigint, self_user_id bigint) OWNER TO postgres;
+
+--
+-- Name: delete_alias(bigint[], bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.delete_alias(alias_ids bigint[], self_id bigint) RETURNS SETOF bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT alias_ids.id as id FROM unnest(delete_alias.alias_ids) as alias_ids(id)
+        JOIN virtual_aliases ON virtual_aliases.id = alias_ids.id
+        JOIN users ON users.id = virtual_aliases.destination
+        JOIN flattened_web_domain_permissions source_perms ON source_perms.user_id = delete_alias.self_id AND users.domain_id = source_perms.domain_id
+        JOIN flattened_web_domain_permissions destination_perms ON destination_perms.user_id = delete_alias.self_id AND destination_perms.domain_id = virtual_aliases.domain_id
+    WHERE (source_perms.is_owner OR source_perms.admin OR (source_perms.delete_alias AND source_perms.list_alias))
+        OR (destination_perms.is_owner OR destination_perms.admin OR (destination_perms.delete_alias AND destination_perms.list_alias))
+) DELETE FROM virtual_aliases USING valid_values WHERE virtual_aliases.id = valid_values.id RETURNING virtual_aliases.id
+$$;
+
+
+ALTER FUNCTION public.delete_alias(alias_ids bigint[], self_id bigint) OWNER TO postgres;
+
+--
+-- Name: delete_subdomain(bigint[], bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.delete_subdomain(domain_ids bigint[], self_id bigint) RETURNS SETOF bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT domain_ids.id as id FROM unnest(delete_subdomain.domain_ids) as domain_ids(id)
+          JOIN domains ON domains.id = domain_ids.id
+          JOIN flattened_web_domain_permissions perms ON perms.user_id = delete_subdomain.self_id AND perms.domain_id = domains.super
+          JOIN flattened_web_domain_permissions sub_perms ON sub_perms.user_id = delete_subdomain.self_id AND sub_perms.domain_id = domains.id
+    WHERE (perms.is_owner OR perms.admin OR (perms.delete_disabled AND perms.list_deleted AND (sub_perms.view_domain OR sub_perms.is_owner OR sub_perms.admin) ))
+      AND domains.deleted = true
+) DELETE FROM domains USING valid_values WHERE domains.id = valid_values.id returning domains.id;
+$$;
+
+
+ALTER FUNCTION public.delete_subdomain(domain_ids bigint[], self_id bigint) OWNER TO postgres;
+
+--
+-- Name: delete_users(bigint[], bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.delete_users(user_ids bigint[], self_id bigint) RETURNS SETOF bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT user_ids.id as id FROM unnest(delete_users.user_ids) as user_ids(id)
+                                      JOIN users ON users.id = user_ids.id
+                                      JOIN flattened_web_domain_permissions perms ON perms.user_id = delete_users.self_id AND users.domain_id = perms.domain_id
+    WHERE (perms.is_owner OR perms.admin OR (perms.delete_disabled AND perms.list_deleted AND perms.list_accounts)) AND users.deleted = true
+) DELETE FROM users USING valid_values WHERE users.id = valid_values.id returning users.id
+$$;
+
+
+ALTER FUNCTION public.delete_users(user_ids bigint[], self_id bigint) OWNER TO postgres;
+
+--
+-- Name: disable_subdomain(bigint[], bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.disable_subdomain(domain_ids bigint[], self_id bigint) RETURNS SETOF bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT domain_ids.id as id FROM unnest(disable_subdomain.domain_ids) as domain_ids(id)
+          JOIN domains ON domains.id = domain_ids.id
+          JOIN flattened_web_domain_permissions perms ON perms.user_id = disable_subdomain.self_id AND perms.domain_id = domains.super
+          JOIN flattened_web_domain_permissions sub_perms ON sub_perms.user_id = disable_subdomain.self_id AND sub_perms.domain_id = domains.id
+    WHERE (perms.is_owner OR perms.admin OR (perms.delete_subdomain AND sub_perms.view_domain))
+) UPDATE domains SET deleted = true FROM valid_values WHERE domains.id = valid_values.id returning domains.id;
+$$;
+
+
+ALTER FUNCTION public.disable_subdomain(domain_ids bigint[], self_id bigint) OWNER TO postgres;
+
+--
+-- Name: disable_users(bigint[], bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.disable_users(user_ids bigint[], self_id bigint) RETURNS SETOF bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT user_ids.id as id FROM unnest(disable_users.user_ids) as user_ids(id)
+                                      JOIN users ON users.id = user_ids.id
+                                      JOIN flattened_web_domain_permissions perms ON perms.user_id = disable_users.self_id AND users.domain_id = perms.domain_id
+    WHERE (perms.is_owner OR perms.admin OR (perms.delete_accounts AND perms.list_accounts))
+) UPDATE users SET deleted = true FROM valid_values WHERE users.id = valid_values.id returning users.id;
+$$;
+
+
+ALTER FUNCTION public.disable_users(user_ids bigint[], self_id bigint) OWNER TO postgres;
+
+--
+-- Name: insert_new_account(bigint, text, text, text, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.insert_new_account(domain_id bigint, email text, password_hash text, dovecot_type text, self_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+    WITH new_account AS (
+        SELECT insert_new_account.domain_id, insert_new_account.email, insert_new_account.password_hash as password, insert_new_account.dovecot_type
+        FROM flattened_web_domain_permissions perm
+        WHERE perm.domain_id = insert_new_account.domain_id AND perm.user_id = insert_new_account.self_id
+            AND (perm.is_owner OR perm.admin OR (perm.create_accounts AND perm.list_accounts))
+    ) INSERT INTO users (domain_id, email, password, dovecot_type) SELECT domain_id, email, password, dovecot_type FROM new_account RETURNING id
+$$;
+
+
+ALTER FUNCTION public.insert_new_account(domain_id bigint, email text, password_hash text, dovecot_type text, self_id bigint) OWNER TO postgres;
+
+--
+-- Name: insert_new_alias(bigint, text, bigint, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.insert_new_alias(domain_id bigint, email text, target_user_id bigint, self_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT insert_new_alias.email as src, insert_new_alias.target_user_id as id FROM virtual_users target
+           JOIN flattened_web_domain_permissions target_perms ON target_perms.domain_id = target.domain_id AND target_perms.user_id = insert_new_alias.self_id
+           JOIN flattened_web_domain_permissions self_perms ON self_perms.domain_id = insert_new_alias.domain_id AND self_perms.user_id = insert_new_alias.self_id
+    WHERE target.id = insert_new_alias.target_user_id AND
+          (target_perms.is_owner OR target_perms.admin OR target_perms.list_accounts) AND
+          (self_perms.is_owner OR self_perms.admin OR self_perms.create_alias)
+) INSERT INTO virtual_aliases (source, domain_id, destination) SELECT src, insert_new_alias.domain_id, id FROM valid_values RETURNING id
+$$;
+
+
+ALTER FUNCTION public.insert_new_alias(domain_id bigint, email text, target_user_id bigint, self_id bigint) OWNER TO postgres;
+
+--
+-- Name: insert_subdomain(bigint, text, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.insert_subdomain(domain_id bigint, subdomain text, self_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT insert_subdomain.domain_id as id FROM flattened_web_domain_permissions self_perms
+    WHERE self_perms.domain_id = insert_subdomain.domain_id AND self_perms.user_id = insert_subdomain.self_id AND
+          (self_perms.is_owner OR self_perms.admin OR (self_perms.create_subdomain AND self_perms.list_subdomain))
+) INSERT INTO domains (name, super, domain_owner) SELECT insert_subdomain.subdomain, id, insert_subdomain.self_id FROM valid_values RETURNING id
+$$;
+
+
+ALTER FUNCTION public.insert_subdomain(domain_id bigint, subdomain text, self_id bigint) OWNER TO postgres;
+
+--
 -- Name: mark_deleted(); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
@@ -74,6 +281,82 @@ $_$;
 
 
 ALTER FUNCTION public.mark_deleted() OWNER TO postgres;
+
+--
+-- Name: recover_subdomain(bigint[], bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.recover_subdomain(domain_ids bigint[], self_id bigint) RETURNS SETOF bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT domain_ids.id as id FROM unnest(recover_subdomain.domain_ids) as domain_ids(id)
+          JOIN domains ON domains.id = domain_ids.id
+          JOIN flattened_web_domain_permissions perms ON perms.user_id = recover_subdomain.self_id AND perms.domain_id = domains.super
+          JOIN flattened_web_domain_permissions sub_perms ON sub_perms.user_id = recover_subdomain.self_id AND sub_perms.domain_id = domains.id
+    WHERE (perms.is_owner OR perms.admin OR (perms.undelete AND perms.list_deleted AND (sub_perms.view_domain OR sub_perms.is_owner OR sub_perms.admin) ))
+      AND domains.deleted = TRUE
+) UPDATE domains SET deleted = false FROM valid_values WHERE domains.id = valid_values.id returning domains.id;
+$$;
+
+
+ALTER FUNCTION public.recover_subdomain(domain_ids bigint[], self_id bigint) OWNER TO postgres;
+
+--
+-- Name: recover_users(bigint[], bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.recover_users(user_ids bigint[], self_id bigint) RETURNS SETOF bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT user_ids.id as id FROM unnest(recover_users.user_ids) as user_ids(id)
+      JOIN users ON users.id = user_ids.id
+      JOIN flattened_web_domain_permissions perms ON perms.user_id = recover_users.self_id AND users.domain_id = perms.domain_id
+    WHERE (perms.is_owner OR perms.admin OR (perms.undelete AND perms.list_deleted AND perms.list_accounts))
+        AND users.deleted = true
+) UPDATE users SET deleted = false FROM valid_values WHERE users.id = valid_values.id returning users.id;
+$$;
+
+
+ALTER FUNCTION public.recover_users(user_ids bigint[], self_id bigint) OWNER TO postgres;
+
+--
+-- Name: set_user_email(bigint, text, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.set_user_email(user_id bigint, email text, self_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT set_user_email.user_id FROM users
+          JOIN flattened_web_domain_permissions perms ON perms.user_id = set_user_email.self_id AND
+             perms.domain_id = users.domain_id
+    WHERE users.id = set_user_email.user_id AND perms.is_owner OR perms.admin OR (perms.list_accounts AND perms.modify_accounts)
+) UPDATE users SET email = set_user_email.email FROM valid_values WHERE users.id = valid_values.user_id returning users.id;
+$$;
+
+
+ALTER FUNCTION public.set_user_email(user_id bigint, email text, self_id bigint) OWNER TO postgres;
+
+--
+-- Name: set_user_password(bigint, text, text, bigint); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.set_user_password(user_id bigint, password text, dovecot_type text, self_id bigint) RETURNS bigint
+    LANGUAGE sql LEAKPROOF
+    AS $$
+WITH valid_values AS (
+    SELECT set_user_password.user_id FROM users
+          JOIN flattened_web_domain_permissions perms ON perms.user_id = set_user_password.self_id AND
+             perms.domain_id = users.domain_id
+    WHERE users.id = set_user_password.user_id AND
+          (perms.is_owner OR perms.admin OR (perms.list_accounts AND perms.modify_accounts))
+) UPDATE users SET password = set_user_password.password, dovecot_type = set_user_password.dovecot_type FROM valid_values WHERE users.id = valid_values.user_id returning users.id;
+$$;
+
+
+ALTER FUNCTION public.set_user_password(user_id bigint, password text, dovecot_type text, self_id bigint) OWNER TO postgres;
 
 SET default_tablespace = '';
 
@@ -226,7 +509,8 @@ CREATE TABLE public.web_domain_permissions (
     modify_domain boolean,
     list_alias boolean,
     list_deleted boolean,
-    undelete boolean
+    undelete boolean,
+    delete_disabled boolean
 );
 
 
@@ -241,92 +525,98 @@ CREATE VIEW public.flattened_web_domain_permissions AS
     domains.id AS domain_id,
     domains.name AS domain_name,
     domains.super AS domain_super,
-    (users.id = ANY (domains.domain_owner)) AS is_owner,
-    (array_append(ARRAY( SELECT perm.admin
+    COALESCE((users.id = domains.domain_owner[1]), false) AS is_owner,
+    COALESCE((users.id = domains.domain_owner[2]), false) AS super_owner,
+    COALESCE((ARRAY( SELECT perm.admin
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.admin IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS admin,
-    (array_append(ARRAY( SELECT perm.view_domain
+          ORDER BY td.level DESC))[1], false) AS admin,
+    COALESCE((ARRAY( SELECT perm.view_domain
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.view_domain IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS view_domain,
-    (array_append(ARRAY( SELECT perm.modify_domain
+          ORDER BY td.level DESC))[1], false) AS view_domain,
+    COALESCE((ARRAY( SELECT perm.modify_domain
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.modify_domain IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS modify_domain,
-    (array_append(ARRAY( SELECT perm.list_subdomain
+          ORDER BY td.level DESC))[1], false) AS modify_domain,
+    COALESCE((ARRAY( SELECT perm.list_subdomain
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_subdomain IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS list_subdomain,
-    (array_append(ARRAY( SELECT perm.create_subdomain
+          ORDER BY td.level DESC))[1], false) AS list_subdomain,
+    COALESCE((ARRAY( SELECT perm.create_subdomain
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_subdomain IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS create_subdomain,
-    (array_append(ARRAY( SELECT perm.delete_subdomain
+          ORDER BY td.level DESC))[1], false) AS create_subdomain,
+    COALESCE((ARRAY( SELECT perm.delete_subdomain
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_subdomain IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS delete_subdomain,
-    (array_append(ARRAY( SELECT perm.list_accounts
+          ORDER BY td.level DESC))[1], false) AS delete_subdomain,
+    COALESCE((ARRAY( SELECT perm.list_accounts
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_accounts IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS list_accounts,
-    (array_append(ARRAY( SELECT perm.create_accounts
+          ORDER BY td.level DESC))[1], false) AS list_accounts,
+    COALESCE((ARRAY( SELECT perm.create_accounts
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_accounts IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS create_accounts,
-    (array_append(ARRAY( SELECT perm.modify_accounts
+          ORDER BY td.level DESC))[1], false) AS create_accounts,
+    COALESCE((ARRAY( SELECT perm.modify_accounts
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.modify_accounts IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS modify_accounts,
-    (array_append(ARRAY( SELECT perm.delete_accounts
+          ORDER BY td.level DESC))[1], false) AS modify_accounts,
+    COALESCE((ARRAY( SELECT perm.delete_accounts
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_accounts IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS delete_accounts,
-    (array_append(ARRAY( SELECT perm.create_alias
-           FROM (public.web_domain_permissions perm
-             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
-          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_alias IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS create_alias,
-    (array_append(ARRAY( SELECT perm.delete_alias
-           FROM (public.web_domain_permissions perm
-             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
-          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_alias IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS delete_alias,
-    (array_append(ARRAY( SELECT perm.list_permissions
-           FROM (public.web_domain_permissions perm
-             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
-          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_permissions IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS list_permissions,
-    (array_append(ARRAY( SELECT perm.manage_permissions
-           FROM (public.web_domain_permissions perm
-             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
-          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.manage_permissions IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS manage_permissions,
-    (array_append(ARRAY( SELECT perm.list_alias
+          ORDER BY td.level DESC))[1], false) AS delete_accounts,
+    COALESCE((ARRAY( SELECT perm.list_alias
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_alias IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS list_alias,
-    (array_append(ARRAY( SELECT perm.list_deleted
+          ORDER BY td.level DESC))[1], false) AS list_alias,
+    COALESCE((ARRAY( SELECT perm.create_alias
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.create_alias IS NOT NULL))
+          ORDER BY td.level DESC))[1], false) AS create_alias,
+    COALESCE((ARRAY( SELECT perm.delete_alias
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_alias IS NOT NULL))
+          ORDER BY td.level DESC))[1], false) AS delete_alias,
+    COALESCE((ARRAY( SELECT perm.list_permissions
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_permissions IS NOT NULL))
+          ORDER BY td.level DESC))[1], false) AS list_permissions,
+    COALESCE((ARRAY( SELECT perm.manage_permissions
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.manage_permissions IS NOT NULL))
+          ORDER BY td.level DESC))[1], false) AS manage_permissions,
+    COALESCE((ARRAY( SELECT perm.list_deleted
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.list_deleted IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS list_deleted,
-    (array_append(ARRAY( SELECT perm.undelete
+          ORDER BY td.level DESC))[1], false) AS list_deleted,
+    COALESCE((ARRAY( SELECT perm.undelete
            FROM (public.web_domain_permissions perm
              JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
           WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.undelete IS NOT NULL))
-          ORDER BY td.level DESC), false))[1] AS undelete
+          ORDER BY td.level DESC))[1], false) AS undelete,
+    COALESCE((ARRAY( SELECT perm.delete_disabled
+           FROM (public.web_domain_permissions perm
+             JOIN public.flattened_domains td ON (((td.id = domains.id) OR (td.id = ANY (domains.super)))))
+          WHERE ((perm.user_id = users.id) AND (perm.domain_id = td.id) AND (perm.delete_disabled IS NOT NULL))
+          ORDER BY td.level DESC))[1], false) AS delete_disabled
    FROM public.flattened_domains domains,
     public.users;
 
@@ -511,10 +801,10 @@ ALTER TABLE ONLY public.web_domain_permissions
 
 
 --
--- Name: domains_name_uindex; Type: INDEX; Schema: public; Owner: postgres
+-- Name: domains_super_name_uindex; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE UNIQUE INDEX domains_name_uindex ON public.domains USING btree (name);
+CREATE UNIQUE INDEX domains_super_name_uindex ON public.domains USING btree (super, name);
 
 
 --
