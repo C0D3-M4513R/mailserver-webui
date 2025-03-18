@@ -27,18 +27,17 @@ impl<S>tracing_subscriber::layer::Filter<S> for Fail2BanFilter {
     }
 }
 
-#[::rocket::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     dotenvy::dotenv()?;
     {
         let path = std::env::var_os("LOG_PATH").unwrap_or_else(|| "logs".to_string().into());
         let mut path = std::path::PathBuf::from(path);
-        tokio::fs::create_dir_all(&path).await.expect("Failed to create log directory");
+        std::fs::create_dir_all(&path).expect("Failed to create log directory");
         path.push("rocket.log");
-        let rocket_logfile = tokio::fs::File::create(&path).await.expect("Failed to create rocket log file").into_std().await;
+        let rocket_logfile = std::fs::File::create(&path).expect("Failed to create rocket log file");
         path.pop();
         path.push("fail2ban.log");
-        let fail2ban_logfile = tokio::fs::File::create(&path).await.expect("Failed to create fail2ban log file").into_std().await;
+        let fail2ban_logfile = std::fs::File::create(&path).expect("Failed to create fail2ban log file");
 
         use tracing_subscriber::Layer;
         use tracing_subscriber::layer::SubscriberExt;
@@ -74,6 +73,10 @@ async fn main() -> anyhow::Result<()> {
         log::info!("Initialized logging");
     }
 
+    ::rocket::execute(launch())
+}
+
+async fn launch() -> anyhow::Result<()> {
     let _ = get_mysql().await;
  //    const Q_NULL: [bool;2] = [false, false];
  //    const Q_FALSE: [bool;2] = [false, true];
