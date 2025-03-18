@@ -1,5 +1,5 @@
 use crate::rocket::content::email_settings::SETTINGS;
-use super::super::messages::{DATABASE_TRANSACTION_ERROR, GET_PERMISSION_ERROR, INCORRECT_PASSWORD, OTHER_PASSWORD_ISSUE};
+use super::super::messages::{GET_PERMISSION_ERROR, INCORRECT_PASSWORD, OTHER_PASSWORD_ISSUE};
 use crate::WEBMAIL_DOMAIN;
 
 const HEAD:&str = const_format::formatcp!(r#"<!Doctype html>
@@ -37,7 +37,7 @@ mod private {
     #[derive(rocket::form::FromForm)]
     pub struct Login<'r> {
         pub(super) email: &'r str,
-        pub(super) password: &'r str,
+        pub(super) password: String,
     }
     #[derive(rocket::response::Responder)]
     pub enum IndexPostReturn {
@@ -57,6 +57,7 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
 
     let mysql = crate::get_mysql().await;
 
+    let login = login.into_inner();
     const ERROR:&str = const_format::concatcp!(HEAD, INCORRECT_PASSWORD, CONTENT, SETTINGS, TAIL);
     let user_id = match sqlx::query!(r#"
     SELECT
@@ -73,15 +74,11 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
             return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))
         }
         Ok(out) => {
-            match super::check_password(out.id, out.id, login.password, None).await {
+            match super::check_password(mysql, out.id, out.id, login.password, None).await {
                 Err(super::AuthError::VerifyPassword(err)) => {
 
                     log::debug!("Password incorrect: {err}");
                     return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))
-                }
-                Err(super::AuthError::TransactionBegin(err)) | Err(super::AuthError::TransactionCommit(err)) => {
-                    log::debug!("Error beginning or commiting transaction to database: {err}!");
-                    return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, DATABASE_TRANSACTION_ERROR, TAIL)))
                 }
                 Err(err) => {
 

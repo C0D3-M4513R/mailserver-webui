@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    password AS \"password!\"\nFROM virtual_users\nWHERE id = $1\nFOR UPDATE",
+  "query": "\nSELECT\n    password AS \"password!\"\nFROM virtual_users\nWHERE id = $1\n",
   "describe": {
     "columns": [
       {
@@ -18,5 +18,5 @@
       true
     ]
   },
-  "hash": "b92cf65c5a1af74b4e768403c4987b0abdb5d9b99372c6957801ca314d018b10"
+  "hash": "6c32fe47388166beb96e72ffceea12f79719f08f35ee523132c98f923dfc478d"
 }

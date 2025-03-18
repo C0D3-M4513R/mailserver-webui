@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use rocket::http::CookieJar;
 use super::super::auth::check_password::{check_password, Error as CheckPasswordError};
-use crate::rocket::messages::{DATABASE_TRANSACTION_ERROR, GET_PERMISSION_ERROR, INCORRECT_PASSWORD, SELF_CHANGE_PASSWORD_ERROR, SELF_CHANGE_PASSWORD_NO_PERM};
+use crate::rocket::messages::{GET_PERMISSION_ERROR, INCORRECT_PASSWORD, SELF_CHANGE_PASSWORD_ERROR, SELF_CHANGE_PASSWORD_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 use super::super::content::change_pw::{HEAD, FORM, TAIL};
@@ -40,6 +40,8 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
         }));
     }
 
+    let data = data.into_inner();
+
     if data.new_password != data.new_password1 {
         return Return::Content((rocket::http::Status::Ok, TypedContent {
             content_type: rocket::http::ContentType::HTML,
@@ -47,7 +49,7 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
         }));
     }
 
-    match check_password(session.get_user_id(), session.get_user_id(), data.old_password.as_str(), Some(data.new_password.as_str())).await {
+    match check_password(pool, session.get_user_id(), session.get_user_id(), data.old_password, Some(data.new_password)).await {
         Ok(()) => Return::Content((rocket::http::Status::Ok, TypedContent {
             content_type: rocket::http::ContentType::HTML,
             content: Cow::Borrowed(const_format::concatcp!(HEAD, r#"<div class="success">The password was changed successfully</div>"#, FORM, TAIL))
@@ -58,13 +60,6 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
             Return::Content((rocket::http::Status::InternalServerError, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
                 content: Cow::Borrowed(const_format::concatcp!(HEAD, INCORRECT_PASSWORD, FORM, TAIL)),
-            }))
-        }
-        Err(CheckPasswordError::TransactionBegin(err)) | Err(CheckPasswordError::TransactionCommit(err)) => {
-            log::debug!("Error beginning or commiting transaction to database: {err}!");
-            Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Borrowed(const_format::concatcp!(HEAD, DATABASE_TRANSACTION_ERROR, TAIL)),
             }))
         }
         Err(err) => {

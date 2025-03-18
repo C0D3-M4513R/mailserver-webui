@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use crate::rocket::auth::check_password::{get_password_hash, set_password};
+use crate::rocket::auth::check_password::get_password_hash;
 use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, DATABASE_PERMISSION_ERROR};
 use crate::rocket::response::{Return, TypedContent};
@@ -9,7 +9,7 @@ mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
     pub struct CreateAccount<'a>{
         pub email: &'a str,
-        pub password: &'a str,
+        pub password: String,
     }
 }
 
@@ -56,8 +56,8 @@ pub async fn create_account(
             return admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
         }
     };
-
-    let hash = match get_password_hash(data.password){
+    let data = data.into_inner();
+    let hash = match get_password_hash(data.password).await {
         Err(err) =>  {
             log::error!("Error getting password hash: {err}");
             let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some("There was an error setting the account Password.")).await;
@@ -66,7 +66,7 @@ pub async fn create_account(
         },
         Ok(v) => v,
     };
-    let id = match sqlx::query!("SELECT insert_new_account($1, $2, $3, '{ARGON2ID}', $4) as id", permission.domain_id(), data.email, hash, session.get_user_id())
+    match sqlx::query!("SELECT insert_new_account($1, $2, $3, '{ARGON2ID}', $4) as id", permission.domain_id(), data.email, hash, session.get_user_id())
         .fetch_optional(&mut *transaction).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(v)) => v,
         Ok(None) => {
@@ -82,16 +82,6 @@ pub async fn create_account(
             return result;
         }
     };
-
-    match set_password(&mut transaction, Ok(id), session.get_user_id(), data.password).await {
-        Err(err) => {
-            log::error!("Error setting password: {err}");
-            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some("There was an error setting the account Password.")).await;
-            result.override_status(rocket::http::Status::InternalServerError);
-            return result;
-        }
-        Ok(()) => {},
-    }
 
     match transaction.commit().await {
         Ok(()) => {},

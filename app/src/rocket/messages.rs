@@ -30,4 +30,3 @@ pub const OWNER_DOMAIN_NO_PERM:&str = r#"You are not the owner of this domain."#
 pub const MANAGE_PERMISSION_NO_PERM:&str = r#"You don't have the permission to manage permissions."#;
 pub const DATABASE_ERROR:&str = r#"There was an error whilst commiunicating with the internal Database. Please try again later."#;
 pub const DATABASE_PERMISSION_ERROR:&str = r#"You don't thave the permission to perform this action."#;
-pub const DATABASE_TRANSACTION_ERROR:&str = DATABASE_ERROR;

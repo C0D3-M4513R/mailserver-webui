@@ -13,8 +13,8 @@ pub(super) mod private{
         pub email: &'a str,
     }
     #[derive(rocket::form::FromForm)]
-    pub struct UpdateAccountPassword<'a>{
-        pub password: &'a str,
+    pub struct UpdateAccountPassword{
+        pub password: String,
     }
     #[derive(rocket::form::FromForm)]
     pub struct UpdateUserPermissions{
@@ -133,7 +133,7 @@ pub async fn admin_domain_account_password_put(
     session: Option<Session>,
     domain: &'_ str,
     user_name: &'_ str,
-    data: rocket::form::Form<private::UpdateAccountPassword<'_>>,
+    data: rocket::form::Form<private::UpdateAccountPassword>,
 ) -> Return {
     let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -158,17 +158,7 @@ pub async fn admin_domain_account_password_put(
         return no_perm;
     }
 
-    let mut transaction = match pool.begin().await {
-        Ok(v) => v,
-        Err(err) => {
-            log::error!("Error beginning transaction: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
-            err.override_status(rocket::http::Status::InternalServerError);
-            return err;
-        }
-    };
-
-    match set_password(&mut transaction, Err((user_name, permission.domain_id())), session.get_user_id(), data.into_inner().password).await {
+    match set_password(pool, Err((user_name, permission.domain_id())), session.get_user_id(), data.into_inner().password).await {
         Err(err) => {
             log::error!("Error setting password: {err}");
             let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some("There was an error setting the account Password.")).await;
@@ -177,17 +167,6 @@ pub async fn admin_domain_account_password_put(
         }
         Ok(()) => {},
     }
-
-    match transaction.commit().await {
-        Err(err) => {
-            log::error!("Error comitting password change Transaction: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some("There was an error setting the account Password.")).await;
-            err.override_status(rocket::http::Status::InternalServerError);
-            return err;
-        }
-        Ok(()) => {},
-    }
-
 
     Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
 }
