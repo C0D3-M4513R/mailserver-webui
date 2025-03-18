@@ -12,11 +12,34 @@ pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
         pool
     }).await
 }
+const FAIL2BAN_TARGET:&str = "fail2ban";
+struct Fail2BanFilter;
+impl<S>tracing_subscriber::layer::Filter<S> for Fail2BanFilter {
+    fn enabled(&self, meta: &tracing::Metadata<'_>, _: &tracing_subscriber::layer::Context<'_, S>) -> bool {
+        meta.target() == FAIL2BAN_TARGET
+    }
+    fn callsite_enabled(&self, meta: &'static tracing::Metadata<'static>) -> tracing::subscriber::Interest {
+        if meta.target() == FAIL2BAN_TARGET {
+            tracing::subscriber::Interest::always()
+        } else {
+            tracing::subscriber::Interest::never()
+        }
+    }
+}
 
 #[::rocket::main]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv()?;
     {
+        let path = std::env::var_os("LOG_PATH").unwrap_or_else(|| "logs".to_string().into());
+        let mut path = std::path::PathBuf::from(path);
+        tokio::fs::create_dir_all(&path).await.expect("Failed to create log directory");
+        path.push("rocket.log");
+        let rocket_logfile = tokio::fs::File::create(&path).await.expect("Failed to create rocket log file").into_std().await;
+        path.pop();
+        path.push("fail2ban.log");
+        let fail2ban_logfile = tokio::fs::File::create(&path).await.expect("Failed to create fail2ban log file").into_std().await;
+
         use tracing_subscriber::Layer;
         use tracing_subscriber::layer::SubscriberExt;
         use tracing_subscriber::util::SubscriberInitExt;
@@ -24,11 +47,29 @@ async fn main() -> anyhow::Result<()> {
         let registry = tracing_subscriber::registry();
         #[cfg(tokio_unstable)]
         let registry = registry.with(console_subscriber::spawn());
-        registry.with(
-            tracing_subscriber::fmt::layer()
-                .pretty()
-                .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
-        )
+        registry
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_thread_ids(true)
+                    .with_thread_names(true)
+                    .with_target(true)
+                    .with_ansi(false)
+                    .with_writer(rocket_logfile)
+            )
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_thread_ids(true)
+                    .with_thread_names(true)
+                    .with_target(true)
+                    .with_ansi(false)
+                    .with_writer(fail2ban_logfile)
+                    .with_filter(Fail2BanFilter{})
+            )
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .pretty()
+                    .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
+            )
             .init();
         log::info!("Initialized logging");
     }

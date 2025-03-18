@@ -47,7 +47,7 @@ mod private {
 }
 
 #[rocket::post("/", data = "<login>")]
-pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::form::Form<private::Login<'_>>) -> private::IndexPostReturn {
+pub async fn index_post(ip: std::net::IpAddr, cookies: &rocket::http::CookieJar<'_>, login: rocket::form::Form<private::Login<'_>>) -> private::IndexPostReturn {
     let (username, domain) = match login.email.split_once("@") {
         None => return private::IndexPostReturn::Html(rocket::response::content::RawHtml(const_format::concatcp!(HEAD, r#"<div class="error">The provided email didn't include an @ sign</div>"#, TAIL))),
         Some(v) => v,
@@ -69,13 +69,14 @@ pub async fn index_post(cookies: &rocket::http::CookieJar<'_>, login: rocket::fo
         .await
     {
         Err(err) => {
-
+            tracing::event!(target: crate::FAIL2BAN_TARGET, tracing::Level::TRACE, msg="Invalid email account", err=err.to_string(), host=?ip);
             log::debug!("error getting email account: {err}");
             return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))
         }
         Ok(out) => {
             match super::check_password(mysql, out.id, out.id, login.password, None).await {
                 Err(super::AuthError::VerifyPassword(err)) => {
+                    tracing::event!(target: crate::FAIL2BAN_TARGET, tracing::Level::TRACE, msg="Invalid password", err=err.to_string(), host=?ip);
 
                     log::debug!("Password incorrect: {err}");
                     return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))

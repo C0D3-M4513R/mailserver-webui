@@ -2,5 +2,6 @@
 /.idea/
 /.direnv/
 /.env
+/logs
 /Rocket.toml
 /sql/dump_command.sh
