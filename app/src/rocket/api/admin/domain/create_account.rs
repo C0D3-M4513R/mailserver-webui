@@ -35,7 +35,7 @@ pub async fn create_account(
         v == '@' || v == '?' || v == '<' || v == '=' || v == '>' || v == ';' || v == ':' ||
         v == '`' || v == '^' || v == '\\' ||
         v == '{' || v == '|' || v == '}' || v == '~' ||
-        v == 177 //177 = Delete
+        v == char::from(177) //177 = Delete
     ) {
         return Return::Content((rocket::http::Status::BadRequest, TypedContent{
             content_type: rocket::http::ContentType::HTML,
