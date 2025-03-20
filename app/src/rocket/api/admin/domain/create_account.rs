@@ -28,7 +28,15 @@ pub async fn create_account(
         Some(v) => v,
     };
 
-    if !data.email.is_ascii() {
+    //okay: ()*,-.[]_
+    if !data.email.is_ascii() && data.email.chars().any(|v|
+        v == ' ' || v == '!' || v == '"' || v == '#' || v == '$' || v == '%' || v == '&' || v == '\'' ||
+        v == '+' || v == '/' ||
+        v == '@' || v == '?' || v == '<' || v == '=' || v == '>' || v == ';' || v == ':' ||
+        v == '`' || v == '^' || v == '\\' ||
+        v == '{' || v == '|' || v == '}' || v == '~' ||
+        v == 177 //177 = Delete
+    ) {
         return Return::Content((rocket::http::Status::BadRequest, TypedContent{
             content_type: rocket::http::ContentType::HTML,
             content: Cow::Owned(template(domain, ACCOUNT_INVALID_CHARS)),

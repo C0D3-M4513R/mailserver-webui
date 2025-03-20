@@ -113,7 +113,7 @@ WHERE users.domain_id = $1 AND deleted = true"#, permissions.domain_id())
         format!(r#"<h2>Create new Account:</h2>
 <form method="POST">
     <input type="hidden" name="_method" value="PUT" />
-    <label>Email: <a></a><input type="text" name="email" pattern="[a-zA-Z0-9]+" />@{domain}</a></label><br>
+    <label>Email: <a></a><input type="text" name="email" pattern="[a-zA-Z0-9\(\)\*\,\-\.\[\]\_]+" />@{domain}</a></label><br>
     <label>Password: <input type="password" name="password" /></label><br>
     <input type="submit" value="Add Account" />
 </form>"#)
