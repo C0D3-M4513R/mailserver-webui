@@ -36,7 +36,7 @@ pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<
         }
     }
 
-    let db = crate::get_mysql().await;
+    let db = crate::get_db().await;
     let domains = match sqlx::query!(r#"
 SELECT
     domains.id AS "id!",
@@ -47,7 +47,7 @@ JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = dom
 WHERE
     ( $2 = domains.domain_owner OR permissions.view_domain OR permissions.admin) AND
     $1 = domains.super AND domains.deleted = false"#, permissions.domain_id(), session.get_user_id())
-        .fetch_all(db)
+        .fetch_all(&db)
         .await
     {
         Ok(v) => v.into_iter().filter_map(|v|{
@@ -73,7 +73,7 @@ SELECT
     domains.name AS "name!"
 FROM flattened_domains domains
 WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_id())
-            .fetch_all(db)
+            .fetch_all(&db)
             .await
         {
             Ok(v) => {

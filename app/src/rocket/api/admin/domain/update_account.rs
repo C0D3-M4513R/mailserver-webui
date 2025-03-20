@@ -44,7 +44,7 @@ pub async fn admin_domain_account_email_put(
             content: Cow::Owned(template(domain, ACCOUNT_INVALID_CHARS)),
         }));
     }
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -60,7 +60,7 @@ pub async fn admin_domain_account_email_put(
 
     match sqlx::query!("SELECT set_user_email(users.id, $1, $2) as id from users WHERE email = $3 AND domain_id = $4",
         data.email, session.get_user_id(), user_name, permission.domain_id())
-        .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+        .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
         Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
             content_type: rocket::http::ContentType::HTML,
@@ -91,7 +91,7 @@ pub async fn admin_domain_account_user_permission_put(
         None => return unauth_error,
         Some(v) => v,
     };
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -116,7 +116,7 @@ pub async fn admin_domain_account_user_permission_put(
                   users.email = $1 AND users.domain_id = $2
     ) AS input ON user_permission.id = input.id
     WHEN MATCHED THEN UPDATE SET self_change_password = input.self_change_password
-    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)", user_name, permission.domain_id(), self_user_id, self_change_password).execute(pool).await {
+    WHEN NOT MATCHED THEN INSERT (id, self_change_password) VALUES (input.id, input.self_change_password)", user_name, permission.domain_id(), self_user_id, self_change_password).execute(&pool).await {
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error creating account: {err}");
@@ -144,7 +144,7 @@ pub async fn admin_domain_account_password_put(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -188,7 +188,7 @@ pub async fn admin_domain_account_permissions_put(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,

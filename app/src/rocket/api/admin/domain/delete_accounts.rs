@@ -45,7 +45,7 @@ pub async fn admin_domain_accounts_delete(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -68,7 +68,7 @@ pub async fn admin_domain_accounts_delete(
     match sqlx::query!(r#"SELECT disable_users($1, $2) as id"#,
         &accounts,
         session.get_user_id()
-    ).fetch_all(pool).await {
+    ).fetch_all(&pool).await {
         Ok(v) => {
             let accounts = HashSet::from_iter(accounts);
             let processed_accounts = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();
@@ -107,7 +107,7 @@ pub async fn admin_domain_accounts_delete_post(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -130,7 +130,7 @@ pub async fn admin_domain_accounts_delete_post(
     match sqlx::query!(r#"SELECT delete_users($1, $2) as id"#,
         &accounts,
         session.get_user_id()
-    ).fetch_all(pool).await {
+    ).fetch_all(&pool).await {
         Ok(v) => {
             let accounts = HashSet::from_iter(accounts);
             let processed_accounts = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();
@@ -167,7 +167,7 @@ pub async fn admin_domain_accounts_restore_post(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -190,7 +190,7 @@ pub async fn admin_domain_accounts_restore_post(
     match sqlx::query!(r#"SELECT recover_users($1, $2) as id"#,
         &accounts,
         session.get_user_id()
-    ).fetch_all(pool).await {
+    ).fetch_all(&pool).await {
         Ok(v) => {
             let accounts = HashSet::from_iter(accounts);
             let processed_accounts = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();

@@ -48,7 +48,7 @@ async fn admin_domain_aliases_delete_impl(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -71,7 +71,7 @@ async fn admin_domain_aliases_delete_impl(
     match sqlx::query!(r#"SELECT delete_alias($1, $2) as id"#,
         &alias_ids,
         session.get_user_id()
-    ).fetch_all(pool).await {
+    ).fetch_all(&pool).await {
         Ok(v) => {
             let aliases = HashSet::from_iter(alias_ids.iter().copied());
             let processed_aliases = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();

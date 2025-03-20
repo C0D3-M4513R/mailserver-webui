@@ -132,12 +132,12 @@ impl UserPermission{
 impl Session{
 
     #[inline]
-    pub async fn new(user_id: i64, pool: &sqlx::postgres::PgPool) -> Result<Self, ::sqlx::Error> {
+    pub async fn new(user_id: i64, pool: sqlx::postgres::PgPool) -> Result<Self, ::sqlx::Error> {
         let user_perm = sqlx::query!(#GET_USER_PERMISSION_QUERY, user_id)
-            .fetch_one(pool)
+            .fetch_one(&pool)
             .await?;
         let permissions = sqlx::query!(#GET_PERMISSION_QUERY, user_id)
-            .fetch_all(pool)
+            .fetch_all(&pool)
             .await;
         let permissions = permissions?;
 
@@ -206,7 +206,7 @@ pub struct UpdatePermissions{
     pub users: HashMap<i64, Enabled<OptPermission>>,
 }
 impl UpdatePermissions {
-    pub async fn apply_perms(&self, self_user_id: i64, domain_id:i64, pool: &sqlx::postgres::PgPool) -> Result<u64, sqlx::Error> {
+    pub async fn apply_perms(&self, self_user_id: i64, domain_id:i64, pool: sqlx::postgres::PgPool) -> Result<u64, sqlx::Error> {
         ::log::debug!("Applying permissions for domain{domain_id} by user{self_user_id}: {self:?}");
         if self.users.is_empty() {
             return Ok(0);
@@ -234,7 +234,7 @@ domain_id,
 self_user_id,
 user_id.as_slice(),
 $($ident.as_slice(),)+
-        ).execute(pool).await.map(|v|v.rows_affected())
+        ).execute(&pool).await.map(|v|v.rows_affected())
     }
 }
 

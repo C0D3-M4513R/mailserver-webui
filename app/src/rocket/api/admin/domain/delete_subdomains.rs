@@ -29,7 +29,7 @@ pub async fn admin_domain_subdomains_delete(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -52,7 +52,7 @@ pub async fn admin_domain_subdomains_delete(
     match sqlx::query!(r#"SELECT disable_subdomain($1, $2) as id"#,
         &domains,
         session.get_user_id()
-    ).fetch_all(pool).await {
+    ).fetch_all(&pool).await {
         Ok(v) => {
             let domains = HashSet::from_iter(domains);
             let processed_domains = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();
@@ -90,7 +90,7 @@ pub async fn admin_domain_subdomains_delete_post(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -113,7 +113,7 @@ pub async fn admin_domain_subdomains_delete_post(
     match sqlx::query!(r#"SELECT delete_subdomain($1, $2) as id"#,
         &domains,
         session.get_user_id()
-    ).fetch_all(pool).await {
+    ).fetch_all(&pool).await {
         Ok(v) => {
             let domains = HashSet::from_iter(domains);
             let processed_domains = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();
@@ -151,7 +151,7 @@ pub async fn admin_domain_subdomains_recover_post(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -174,7 +174,7 @@ pub async fn admin_domain_subdomains_recover_post(
     match sqlx::query!(r#"SELECT recover_subdomain($1, $2) as id"#,
         &domains,
         session.get_user_id()
-    ).fetch_all(pool).await {
+    ).fetch_all(&pool).await {
         Ok(v) => {
             let domains = HashSet::from_iter(domains);
             let processed_domains = v.into_iter().filter_map(|v|v.id).collect::<HashSet<_>>();

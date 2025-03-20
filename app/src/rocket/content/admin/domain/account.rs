@@ -35,7 +35,7 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
         }
     }
 
-    let db = crate::get_mysql().await;
+    let db = crate::get_db().await;
     let account = match sqlx::query!(r#"
 SELECT
     users.id AS "id!",
@@ -62,7 +62,7 @@ JOIN domains ON domains.id = users.domain_id
 JOIN flattened_web_domain_permissions flat_perms ON flat_perms.domain_id = domains.super AND flat_perms.user_id = users.id
 WHERE users.email = $1 AND users.domain_id = $2
 "#, user_name, permissions.domain_id())
-        .fetch_one(db)
+        .fetch_one(&db)
         .await
     {
         Ok(v) => v,
@@ -119,7 +119,7 @@ WHERE users.email = $1 AND users.domain_id = $2
         match sqlx::query!(r#"SELECT alias.id as "id!", alias.source || '@' || domains.name as "email!" FROM virtual_aliases alias
     JOIN flattened_domains domains ON domains.id = alias.domain_id
     WHERE destination = $1
-    "#, user_id).fetch_all(db).await
+    "#, user_id).fetch_all(&db).await
         {
             Ok(v) => {
                 let delete = if permissions.admin() || permissions.delete_alias() {

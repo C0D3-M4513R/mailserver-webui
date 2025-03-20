@@ -43,7 +43,7 @@ pub async fn create_account(
         }));
     }
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,

@@ -28,7 +28,7 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -49,7 +49,7 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
     }
 
     match sqlx::query!("SELECT change_domain_name($1, $2, $3) as id", permission.domain_id(), data.name, session.get_user_id())
-    .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+    .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
         Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
@@ -76,7 +76,7 @@ pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: 
         None => return unauth_error,
         Some(v) => v,
     };
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -91,7 +91,7 @@ pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: 
     }
 
     match sqlx::query!("SELECT change_domain_accepts_email($1, $2, $3) as id", permission.domain_id(), data.accepts_email, session.get_user_id())
-        .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+        .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
         Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
@@ -124,7 +124,7 @@ pub async fn admin_domain_permissions_put(
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,

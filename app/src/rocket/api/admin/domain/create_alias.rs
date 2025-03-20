@@ -35,7 +35,7 @@ pub async fn admin_domain_aliases_put(
         }));
     }
 
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -51,7 +51,7 @@ pub async fn admin_domain_aliases_put(
 
     match sqlx::query!("
 SELECT insert_new_alias($1, $2, $3, $4) as id", permission.domain_id(), data.source,  data.user, session.get_user_id())
-    .fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+    .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
         Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
             content_type: rocket::http::ContentType::HTML,

@@ -30,7 +30,7 @@ const ARGON2_PARAMS: argon2::Params = match argon2::Params::new(
 };
 // const ARGON2_PARAMS: argon2::Params = argon2::Params::DEFAULT;
 
-pub async fn check_password(db: &sqlx::PgPool, user_id: i64, slf_user_id: i64, password: String, new_password: Option<String>) -> Result<(), Error> {
+pub async fn check_password(db: sqlx::PgPool, user_id: i64, slf_user_id: i64, password: String, new_password: Option<String>) -> Result<(), Error> {
     // let mut transaction = db.begin().await.map_err(|e| Error::TransactionBegin(e))?;
     let password_hash = sqlx::query!(r#"
 SELECT
@@ -38,7 +38,7 @@ SELECT
 FROM virtual_users
 WHERE id = $1
 "#, user_id)
-        .fetch_one(db)
+        .fetch_one(&db)
         .await.map_err(|err|Error::GetPassword(err))?.password;
     log::debug!("got Password-Hash: {password_hash:?}");
 
@@ -78,16 +78,16 @@ pub async fn get_password_hash(password: String) -> Result<String, Error> {
     }).await.unwrap_or_else(|e|Err(Error::HashNewPasswordPanic(e)))
 }
 
-pub async fn set_password(db: &sqlx::PgPool, user: Result<i64, (&str, i64)>, slf_user_id: i64, password: String) -> Result<(), Error> {
+pub async fn set_password(db: sqlx::PgPool, user: Result<i64, (&str, i64)>, slf_user_id: i64, password: String) -> Result<(), Error> {
     let hash = get_password_hash(password).await?;
     match match user {
         Ok(v) => {
             sqlx::query!("SELECT set_user_password($1, $2, '{ARGON2ID}', $3) as id", v, hash, slf_user_id)
-                .fetch_optional(db).await.map(|v|v.map(|v|v.id).flatten())
+                .fetch_optional(&db).await.map(|v|v.map(|v|v.id).flatten())
         },
         Err((email, domain_id)) => {
             sqlx::query!("SELECT set_user_password(users.id, $3, '{ARGON2ID}', $4) as id FROM users WHERE users.email = $1 AND users.domain_id = $2 ", email, domain_id, hash, slf_user_id)
-                .fetch_optional(db).await.map(|v|v.map(|v|v.id).flatten())
+                .fetch_optional(&db).await.map(|v|v.map(|v|v.id).flatten())
         }
     } {
         Ok(Some(_)) => Ok(()),

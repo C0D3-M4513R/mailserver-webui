@@ -36,7 +36,7 @@ pub(in crate::rocket) async fn admin_domain_permissions_get_impl(session: Option
         }
     }
 
-    let db = crate::get_mysql().await;
+    let db = crate::get_db().await;
     let accounts = match sqlx::query!(r#"
 SELECT
     user_domain.name as "name!",
@@ -64,7 +64,7 @@ FROM virtual_domains domains
     LEFT JOIN web_domain_permissions perms ON perms.domain_id = domains.id AND perms.user_id = users.id
     LEFT JOIN flattened_web_domain_permissions flat_perms ON cardinality(domains.super) = 0 AND flat_perms.domain_id = domains.super[1] AND flat_perms.user_id = users.id
 WHERE domains.id = $1"#, permissions.domain_id())
-        .fetch_all(db)
+        .fetch_all(&db)
         .await
     {
         Ok(v) => v.into_iter().map(|v|{

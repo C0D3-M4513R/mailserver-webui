@@ -2,7 +2,7 @@ use std::io::Read;
 use base64::Engine;
 use rocket::Request;
 use rocket::request::Outcome;
-use crate::{get_mysql, WEBMAIL_DOMAIN};
+use crate::{get_db, WEBMAIL_DOMAIN};
 
 pub use crate::rocket::auth::permissions::{Permission, UserPermission};
 
@@ -25,7 +25,7 @@ pub struct Session {
     pub(super) permissions: std::collections::HashMap<String, Permission>,
 }
 impl Session{
-    pub async fn refresh_permissions(&mut self, pool:&sqlx::postgres::PgPool, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
+    pub async fn refresh_permissions(&mut self, pool:sqlx::postgres::PgPool, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
         let session = Self::new(self.user_id, pool).await?;
         match session.get_cookie() {
             Ok(v) => cookies.add_private(v),
@@ -122,7 +122,7 @@ impl<'r> rocket::request::FromRequest<'r> for Session{
                 },
             }
         };
-        let db = get_mysql().await;
+        let db = get_db().await;
         match Self::new(email.user_id, db).await {
             Ok(v) => Outcome::Success(v),
             Err(err) => {

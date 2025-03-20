@@ -55,7 +55,7 @@ pub async fn index_post(ip: std::net::IpAddr, cookies: &rocket::http::CookieJar<
 
     log::debug!("username: {username}, domain: {domain}");
 
-    let mysql = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let login = login.into_inner();
     const ERROR:&str = const_format::concatcp!(HEAD, INCORRECT_PASSWORD, CONTENT, SETTINGS, TAIL);
@@ -65,7 +65,7 @@ pub async fn index_post(ip: std::net::IpAddr, cookies: &rocket::http::CookieJar<
     FROM  virtual_users          users
     JOIN  virtual_domains        domains    ON users.domain_id = domains.id
     WHERE users.email = $1 AND domains.name = $2"#, username, domain)
-        .fetch_one(mysql)
+        .fetch_one(&pool)
         .await
     {
         Err(err) => {
@@ -74,7 +74,7 @@ pub async fn index_post(ip: std::net::IpAddr, cookies: &rocket::http::CookieJar<
             return private::IndexPostReturn::Html(rocket::response::content::RawHtml(ERROR))
         }
         Ok(out) => {
-            match super::check_password(mysql, out.id, out.id, login.password, None).await {
+            match super::check_password(pool.clone(), out.id, out.id, login.password, None).await {
                 Err(super::AuthError::VerifyPassword(err)) => {
                     tracing::event!(target: crate::FAIL2BAN_TARGET, tracing::Level::TRACE, msg="Invalid password", err=err.to_string(), host=?ip);
 
@@ -93,7 +93,7 @@ pub async fn index_post(ip: std::net::IpAddr, cookies: &rocket::http::CookieJar<
 
     let session = match super::Session::new(
         user_id,
-        mysql
+        pool
     ).await {
         Ok(v) => v,
         Err(err) => {

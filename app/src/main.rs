@@ -3,14 +3,14 @@ mod rocket;
 const SPECIAL_ROOT_DOMAIN_NAME:&str = "root";
 const WEBMAIL_DOMAIN:&str = "https://webmail.c0d3m4513r.com";
 const MAIL_DOMAIN:&str = "mail.c0d3m4513r.com";
-pub(crate) async fn get_mysql<'a>() -> &'a sqlx::postgres::PgPool {
+pub(crate) async fn get_db<'a>() -> sqlx::postgres::PgPool {
     static MYSQL: tokio::sync::OnceCell<sqlx::postgres::PgPool> = tokio::sync::OnceCell::const_new();
     MYSQL.get_or_init(||async {
         let options = sqlx::postgres::PgConnectOptions::new();
         let pool = sqlx::Pool::connect_with(options).await.expect("Failed to connect to postgres");
         log::info!("Connected to postgres");
         pool
-    }).await
+    }).await.clone()
 }
 const FAIL2BAN_TARGET:&str = "fail2ban";
 struct Fail2BanFilter;
@@ -77,7 +77,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 async fn launch() -> anyhow::Result<()> {
-    let _ = get_mysql().await;
+    let _ = get_db().await;
  //    const Q_NULL: [bool;2] = [false, false];
  //    const Q_FALSE: [bool;2] = [false, true];
  //    const Q_TRUE: [bool;2] = [true, false];

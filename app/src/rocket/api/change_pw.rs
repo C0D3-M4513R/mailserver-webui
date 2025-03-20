@@ -22,8 +22,8 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
         Some(v) => v,
     };
 
-    let pool = crate::get_mysql().await;
-    match session.refresh_permissions(pool, cookie_jar).await{
+    let pool = crate::get_db().await;
+    match session.refresh_permissions(pool.clone(), cookie_jar).await{
         Ok(()) => {},
         Err(err) => {
             log::error!("Error refreshing permissions: {err}");

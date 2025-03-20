@@ -35,7 +35,7 @@ pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: Option<Ses
         }
     }
 
-    let db = crate::get_mysql().await;
+    let db = crate::get_db().await;
     let aliases = match sqlx::query!(r#"
 SELECT
     alias.id AS "id!",
@@ -44,7 +44,7 @@ SELECT
 FROM virtual_aliases alias
 JOIN dovecot_users users ON alias.destination = users.id
 WHERE alias.domain_id = $1"#, permissions.domain_id())
-        .fetch_all(db)
+        .fetch_all(&db)
         .await
     {
         Ok(v) => v.into_iter().map(|v|{
@@ -71,7 +71,7 @@ WHERE alias.domain_id = $1"#, permissions.domain_id())
     JOIN virtual_domains domains ON users.domain_id = domains.id
     JOIN flattened_web_domain_permissions perms ON perms.user_id = $1 AND perms.domain_id = users.domain_id
 WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
-"#, session.get_user_id()).fetch_all(db).await
+"#, session.get_user_id()).fetch_all(&db).await
         {
             Ok(v) => {
                 has_err = false;

@@ -26,7 +26,7 @@ pub async fn admin_domain_subdomains_put(
         None => return unauth_error,
         Some(v) => v,
     };
-    let pool = crate::get_mysql().await;
+    let pool = crate::get_db().await;
 
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
         content_type: rocket::http::ContentType::HTML,
@@ -48,7 +48,7 @@ pub async fn admin_domain_subdomains_put(
 
     match sqlx::query!("SELECT insert_subdomain($1::bigint, $2::text, $3::bigint) as id",
         permission.domain_id(), data.name, session.get_user_id()
-    ).fetch_optional(pool).await.map(|v|v.map(|v|v.id).flatten()) {
+    ).fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
                 content_type: rocket::http::ContentType::HTML,
                 content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
