@@ -42,10 +42,14 @@ SELECT
     domains.id AS "id!",
     flattened_domains.name AS "name!"
 FROM domains
-JOIN flattened_domains ON flattened_domains.id = domains.id
-JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id AND permissions.user_id = $2
+    JOIN flattened_domains ON flattened_domains.id = domains.id
+    JOIN flattened_web_domain_permissions permissions ON permissions.domain_id = domains.id AND permissions.user_id = $2
+    JOIN flattened_web_domain_permissions parent_permissions ON parent_permissions.domain_id = $1 AND parent_permissions.user_id = $2
 WHERE
-    ( $2 = domains.domain_owner OR permissions.view_domain OR permissions.admin) AND
+     (
+         permissions.is_owner OR permissions.view_domain OR permissions.admin OR
+         permissions.super_owner OR parent_permissions.list_subdomain OR parent_permissions.admin
+     ) AND
     $1 = domains.super AND domains.deleted = false"#, permissions.domain_id(), session.get_user_id())
         .fetch_all(&db)
         .await
@@ -54,7 +58,7 @@ WHERE
             let id = v.id;
             let name = v.name;
             let modify = format!(r#"<a href="/admin/{name}">Modify</a>"#);
-            Some(format!(r#"<tr><td><input class="domain-select" type="checkbox" name="domains[{id}]"/></td><td>{name}.{domain}</td><td>{modify}</td></tr>"#))
+            Some(format!(r#"<tr><td><input class="domain-select" type="checkbox" name="domains[{id}]"/></td><td>{name}</td><td>{modify}</td></tr>"#))
         }).fold(String::new(), |a,b|format!("{a}{b}")),
         Err(err) => {
 
