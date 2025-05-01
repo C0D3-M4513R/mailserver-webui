@@ -94,7 +94,7 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
         format!(r#"<h2>Create new Alias:</h2>
 <form method="POST">
     <input type="hidden" name="_method" value="PUT" />
-    <label>Source: <a></a><input type="text" name="source" pattern="[a-zA-Z0-9]+" {has_err}/>@{domain}</a></label><br>
+    <label>Source: <a></a><input type="text" name="source" pattern="[a-zA-Z0-9\(\)\*\,\-\.\[\]\_]+" {has_err}/>@{domain}</a></label><br>
     <label>Target: <a><select name="user" {has_err}>{destination}</select></label><br>
     <input type="submit" value="Add Alias" {has_err} />
 </form>"#)
