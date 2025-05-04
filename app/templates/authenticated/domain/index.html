@@ -1,7 +1,8 @@
 {% extends "authenticated/domain_base.html" %}
+{% import "parts/authenticated/domain_header.html" as domain_header %}
 
 {% block domain_content %}
-
+{% call domain_header::header(domain, Some(permissions)) %}
 <h2>Manage Domain:</h2>
 {% if permissions.admin() || permissions.view_domain() %}
 <form method="POST" action="/api/admin/{{domain}}/accepts_email">

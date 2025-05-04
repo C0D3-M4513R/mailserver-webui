@@ -1,11 +1,13 @@
 {% macro header(domain, permissions) %}
 <div class="header">
   <a href="/admin">Back to Main-Panel</a>
-  <a href="/admin/{domain}">Domain Main Overview</a>
 {% match permissions %}
-{% when Self::None %}
-{% when Self::Some(permissions) %}
+{% when None %}
+{% when Some(permissions) %}
 
+{% if permissions.admin() || permissions.view_domain() %}
+  <a href="/admin/{{domain}}">Domain Main Overview</a>
+{% endif %}
 {% if permissions.admin() || permissions.list_accounts() %}
   <a href="/admin/{{domain}}/accounts">Manage Accounts</a>
 {% endif %}
