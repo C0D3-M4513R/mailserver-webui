@@ -1,10 +1,9 @@
-use std::borrow::Cow;
 use rocket::http::CookieJar;
 use super::super::auth::check_password::{check_password, Error as CheckPasswordError};
 use crate::rocket::messages::{GET_PERMISSION_ERROR, INCORRECT_PASSWORD, SELF_CHANGE_PASSWORD_ERROR, SELF_CHANGE_PASSWORD_NO_PERM};
-use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
-use super::super::content::change_pw::{HEAD, FORM, TAIL};
+use crate::rocket::template::change_pw::ChangePw;
 
 mod private {
     #[derive(rocket::form::FromForm)]
@@ -27,48 +26,48 @@ pub async fn admin_put_change_pw(session: Option<Session>, data: rocket::form::F
         Ok(()) => {},
         Err(err) => {
             log::error!("Error refreshing permissions: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Borrowed(const_format::concatcp!(HEAD,GET_PERMISSION_ERROR, TAIL)),
-            }));
+            return (rocket::http::Status::InternalServerError, ChangePw{
+                block_change_pw: true,
+                error: Some(GET_PERMISSION_ERROR.into()),
+            }).into();
         }
     }
     if !session.get_user_permission().self_change_password() {
-        return Return::Content((rocket::http::Status::Forbidden, TypedContent {
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Borrowed(const_format::concatcp!(HEAD,SELF_CHANGE_PASSWORD_NO_PERM, TAIL))
-        }));
+        return (rocket::http::Status::Forbidden, ChangePw{
+            block_change_pw: true,
+            error: Some(SELF_CHANGE_PASSWORD_NO_PERM.into())
+        }).into();
     }
 
     let data = data.into_inner();
 
     if data.new_password != data.new_password1 {
-        return Return::Content((rocket::http::Status::Ok, TypedContent {
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Borrowed(const_format::concatcp!(HEAD, r#"<div class="error">The new passwords don't match</div>"#, FORM, TAIL))
-        }));
+        return (rocket::http::Status::Ok, ChangePw{
+            block_change_pw: false,
+            error: Some(r#"<div class="error">The new passwords don't match</div>"#.into())
+        }).into();
     }
 
     match check_password(pool, session.get_user_id(), session.get_user_id(), data.old_password, Some(data.new_password)).await {
-        Ok(()) => Return::Content((rocket::http::Status::Ok, TypedContent {
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Borrowed(const_format::concatcp!(HEAD, r#"<div class="success">The password was changed successfully</div>"#, FORM, TAIL))
-        })),
+        Ok(()) => (rocket::http::Status::Ok, ChangePw{
+            block_change_pw: false,
+            error: Some(r#"<div class="success">The password was changed successfully</div>"#.into())
+        }).into(),
         Err(CheckPasswordError::VerifyPassword(err)) => {
 
             log::debug!("Password incorrect: {err}");
-            Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Borrowed(const_format::concatcp!(HEAD, INCORRECT_PASSWORD, FORM, TAIL)),
-            }))
+            (rocket::http::Status::InternalServerError, ChangePw{
+                block_change_pw: false,
+                error: Some(INCORRECT_PASSWORD.into()),
+            }).into()
         }
         Err(err) => {
 
             log::debug!("Error changing password: {err}");
-            Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Borrowed(const_format::concatcp!(HEAD, SELF_CHANGE_PASSWORD_ERROR, TAIL)),
-            }))
+            (rocket::http::Status::InternalServerError, ChangePw{
+                block_change_pw: true,
+                error: Some(SELF_CHANGE_PASSWORD_ERROR.into()),
+            }).into()
         }
     }
 }

@@ -1,11 +1,12 @@
-use std::borrow::Cow;
 use crate::rocket::auth::permissions::UpdatePermissions;
-use crate::rocket::content::admin::domain::{template, UNAUTH};
+use crate::rocket::content::admin::domain::UNAUTH;
 use crate::rocket::content::admin::domain::permissions::admin_domain_permissions_get_impl;
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
 use crate::rocket::messages::{DATABASE_ERROR, DATABASE_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_DOMAIN_NO_PERM, SUBDOMAIN_INVALID_CHARS};
-use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
+use crate::rocket::template::authenticated::domain_base::DomainBase;
+
 mod private{
     #[derive(rocket::form::FromForm)]
     pub struct RenameSubdomain<'a>{
@@ -24,33 +25,32 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
         Some(v) => v,
     };
 
-    let pool = crate::get_db().await;
-
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, MODIFY_DOMAIN_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: MODIFY_DOMAIN_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_domain() {
-        return no_perm;
+        return no_perm.into();
     }
     if !data.name.is_ascii() {
-        return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, SUBDOMAIN_INVALID_CHARS)),
-        }));
+        return (rocket::http::Status::Forbidden, DomainBase{
+            domain,
+            content: SUBDOMAIN_INVALID_CHARS,
+        }).into();
     }
 
+    let pool = crate::get_db().await;
     match sqlx::query!("SELECT change_domain_name($1, $2, $3) as id", permission.domain_id(), data.name, session.get_user_id())
     .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
-        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-            })),
+        Ok(None) => return (rocket::http::Status::Forbidden, DomainBase{
+                domain,
+                content: DATABASE_PERMISSION_ERROR,
+            }).into(),
         Err(err) => {
             log::error!("Error changing domain name: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
@@ -70,25 +70,25 @@ pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: 
     };
     let pool = crate::get_db().await;
 
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, MODIFY_DOMAIN_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: MODIFY_DOMAIN_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_domain() {
-        return no_perm;
+        return no_perm.into();
     }
 
     match sqlx::query!("SELECT change_domain_accepts_email($1, $2, $3) as id", permission.domain_id(), data.accepts_email, session.get_user_id())
         .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
-        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-            })),
+        Ok(None) => return (rocket::http::Status::Forbidden, DomainBase{
+                domain,
+                content: DATABASE_PERMISSION_ERROR,
+            }).into(),
         Err(err) => {
             log::error!("Error changing domain name: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
@@ -112,20 +112,19 @@ pub async fn admin_domain_permissions_put(
         Some(v) => v,
     };
 
-    let pool = crate::get_db().await;
-
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, MANAGE_PERMISSION_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: MANAGE_PERMISSION_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.manage_permissions() {
-        return no_perm;
+        return no_perm.into();
     }
 
+    let pool = crate::get_db().await;
     match data.apply_perms(session.get_user_id(), permission.domain_id(), pool).await {
         Ok(_) => {  },
         Err(err) => {

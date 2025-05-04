@@ -58,10 +58,10 @@ WHERE users.domain_id = $1"#, permissions.domain_id())
         Err(err) => {
 
             log::error!("Error fetching accounts: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, DATABASE_ERROR)),
-            }));
+            return (rocket::http::Status::InternalServerError, DomainBase{
+                domain,
+                content: DATABASE_ERROR,
+            }).into();
         }
     };
     let deleted_accounts = if permissions.admin() || permissions.list_deleted() {

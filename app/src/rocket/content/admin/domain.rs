@@ -11,12 +11,11 @@ pub use permissions::admin_domain_permissions_get;
 pub use aliases::admin_domain_aliases_get;
 
 use crate::rocket::auth::session::HEADER;
-use std::borrow::Cow;
 use std::fmt::Display;
-use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM, VIEW_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM, VIEW_DOMAIN_NO_PERM};
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 use crate::rocket::template::authenticated::domain::index::{DomainAccount, DomainIndex, DomainName};
-use super::super::{Session, Return, TypedContent};
+use super::super::{Session, Return};
 
 pub(in crate::rocket) fn template(domain: &str, content: impl Display) -> String {
     format!(
@@ -126,10 +125,10 @@ WHERE domains.id = $1
         {
             Err(err) => {
                 log::debug!("Error fetching domain: {err}");
-                return Return::Content((rocket::http::Status::InternalServerError, TypedContent {
-                    content_type: rocket::http::ContentType::HTML,
-                    content: Cow::Owned(template(domain, DATABASE_ERROR)),
-                }));
+                return (rocket::http::Status::InternalServerError, DomainBase {
+                    domain,
+                    content: DATABASE_ERROR,
+                }).into();
             },
             Ok(v) => v
         };
@@ -162,10 +161,10 @@ FROM owner_domains
         {
             Err(err) => {
                 log::debug!("Error fetching accounts: {err}");
-                return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-                    content_type: rocket::http::ContentType::HTML,
-                    content: Cow::Owned(template(domain, VIEW_DOMAIN_NO_PERM)),
-                }));
+                return (rocket::http::Status::Forbidden, DomainBase{
+                    domain,
+                    content: VIEW_DOMAIN_NO_PERM,
+                }).into();
             },
             Ok(v) => {
                 v.into_iter().map(|v|DomainAccount{
@@ -188,5 +187,5 @@ FROM owner_domains
 }
 pub(crate) const UNAUTH:fn(&str) -> (rocket::http::Status, DomainBase<'_, &'static str>) = |domain| (rocket::http::Status::Forbidden, DomainBase{
     domain,
-    content: LIST_SUBDOMAIN_NO_PERM,
+    content: VIEW_DOMAIN_NO_PERM,
 });

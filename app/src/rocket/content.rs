@@ -1,5 +1,5 @@
-use super::response::{Return, TypedContent};
-use super::auth::session::{Session, HEADER as SESSION_HEADER};
+use super::response::Return;
+use super::auth::session::Session;
 pub mod index;
 pub mod admin;
 pub mod change_pw;

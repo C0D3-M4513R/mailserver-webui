@@ -24,7 +24,6 @@ pub const UNDELETE_DISABLED_NO_PERM:&str = r#"You don't have the permission to r
 
 pub const VIEW_DOMAIN_NO_PERM:&str = r#"You don't have the permission to view this domain."#;
 
-pub const LIST_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to list subdomains."#;
 pub const CREATE_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to create subdomains."#;
 pub const SUBDOMAIN_INVALID_CHARS:&str = r#"The (sub)domain name you entered was invalid."#;
 pub const DELETE_SUBDOMAIN_NO_PERM:&str = r#"You don't have the permission to delete subdomains."#;

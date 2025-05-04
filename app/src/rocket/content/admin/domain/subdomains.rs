@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use crate::rocket::content::admin::domain::{domain_linklist, template, UNAUTH};
-use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 use crate::rocket::template::authenticated::domain_base::DomainBase;

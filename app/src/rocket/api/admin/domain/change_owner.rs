@@ -1,8 +1,7 @@
-use std::borrow::Cow;
-use crate::rocket::content::admin::domain::{template, UNAUTH};
+use crate::rocket::content::admin::domain::UNAUTH;
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
 use crate::rocket::messages::{DATABASE_ERROR, DATABASE_PERMISSION_ERROR, OWNER_DOMAIN_NO_PERM};
-use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 
@@ -36,10 +35,10 @@ pub async fn admin_domain_owner_put(session: Option<Session>, domain: &'_ str, d
     match sqlx::query!(r#"SELECT change_domain_owner($1, $2, $3) as id;"#, permission.domain_id(), data.owner, session.get_user_id())
         .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
-        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-        })),
+        Ok(None) => return (rocket::http::Status::Forbidden, DomainBase{
+            domain,
+            content: DATABASE_PERMISSION_ERROR,
+        }).into(),
         Err(err) => {
             log::error!("Error creating subdomain: {err}");
             let mut result =  admin_domain_subdomains_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
