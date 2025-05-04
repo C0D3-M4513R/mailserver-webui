@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_error};
+use crate::rocket::content::admin::domain::{domain_linklist, template, UNAUTH};
 use crate::rocket::messages::{DATABASE_ERROR, LIST_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
@@ -11,10 +11,7 @@ pub async fn admin_domain_aliases_get(session: Option<Session>, domain: &str) ->
 
 pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: Option<Session>, domain: &str, error: Option<&str>) -> Return {
     let session = match session {
-        None => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(unauth_error(domain)),
-        })),
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
     let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{

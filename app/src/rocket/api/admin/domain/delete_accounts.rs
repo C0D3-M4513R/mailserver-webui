@@ -1,9 +1,9 @@
-use std::borrow::Cow;
 use std::collections::HashSet;
-use crate::rocket::content::admin::domain::{template, unauth_error};
+use crate::rocket::content::admin::domain::UNAUTH;
 use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR, DELETE_DISABLED_NO_PERM, UNDELETE_DISABLED_NO_PERM};
-use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
+use crate::rocket::template::authenticated::domain_base::DomainBase;
 
 mod private {
     use std::collections::HashMap;
@@ -36,34 +36,30 @@ pub async fn admin_domain_accounts_delete(
     domain: &str,
     data: ::rocket::form::Form<private::AccountSelection>
 ) -> Return {
-    let unauth = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
-    let pool = crate::get_db().await;
 
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, DELETE_ACCOUNT_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: DELETE_ACCOUNT_NO_PERM,
+    });
     let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permissions.admin() && !permissions.delete_accounts(){
-        return no_perm;
+        return no_perm.into();
     }
 
-    let db_error = Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, DATABASE_ERROR)),
-    }));
+    let db_error = (rocket::http::Status::InternalServerError, DomainBase{
+        domain,
+        content: DATABASE_ERROR,
+    });
 
+    let pool = crate::get_db().await;
     let accounts = data.into_inner().accounts.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
     match sqlx::query!(r#"SELECT disable_users($1, $2) as id"#,
         &accounts,
@@ -86,7 +82,7 @@ pub async fn admin_domain_accounts_delete(
         },
         Err(err) => {
             log::error!("Error deleting accounts: {err}");
-            db_error
+            db_error.into()
         }
     }
 
@@ -98,34 +94,29 @@ pub async fn admin_domain_accounts_delete_post(
     domain: &str,
     data: ::rocket::form::Form<private::AccountSelection>
 ) -> Return {
-    let unauth = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
-    let pool = crate::get_db().await;
-
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, DELETE_DISABLED_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: DELETE_DISABLED_NO_PERM,
+    });
     let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permissions.admin() && !(permissions.delete_disabled() && permissions.list_deleted()) {
-        return no_perm;
+        return no_perm.into();
     }
 
-    let db_error = Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, DATABASE_ERROR)),
-    }));
+    let db_error = (rocket::http::Status::InternalServerError, DomainBase{
+        domain,
+        content: DATABASE_ERROR,
+    });
 
+    let pool = crate::get_db().await;
     let accounts = data.into_inner().accounts.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
     match sqlx::query!(r#"SELECT delete_users($1, $2) as id"#,
         &accounts,
@@ -148,7 +139,7 @@ pub async fn admin_domain_accounts_delete_post(
         },
         Err(err) => {
             log::error!("Error deleting accounts: {err}");
-            db_error
+            db_error.into()
         }
     }
 }
@@ -158,34 +149,29 @@ pub async fn admin_domain_accounts_restore_post(
     domain: &str,
     data: ::rocket::form::Form<private::AccountSelection>
 ) -> Return {
-    let unauth = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
-    let pool = crate::get_db().await;
-
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, UNDELETE_DISABLED_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: UNDELETE_DISABLED_NO_PERM,
+    });
     let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permissions.admin() && !(permissions.undelete() && permissions.list_accounts()){
-        return no_perm;
+        return no_perm.into();
     }
 
-    let db_error = Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, DATABASE_ERROR)),
-    }));
+    let db_error = (rocket::http::Status::InternalServerError, DomainBase{
+        domain,
+        content: DATABASE_ERROR,
+    });
 
+    let pool = crate::get_db().await;
     let accounts = data.into_inner().accounts.into_iter().filter_map(|(k, v)|if v {Some(k)} else {None}).collect::<Vec<_>>();
     match sqlx::query!(r#"SELECT recover_users($1, $2) as id"#,
         &accounts,
@@ -208,7 +194,7 @@ pub async fn admin_domain_accounts_restore_post(
         },
         Err(err) => {
             log::error!("Error restoring accounts: {err}");
-            db_error
+            db_error.into()
         }
     }
 }

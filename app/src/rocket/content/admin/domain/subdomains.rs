@@ -1,8 +1,9 @@
 use std::borrow::Cow;
-use crate::rocket::content::admin::domain::{domain_linklist, template, unauth_error};
-use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM};
+use crate::rocket::content::admin::domain::{domain_linklist, template, UNAUTH};
+use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
+use crate::rocket::template::authenticated::domain_base::DomainBase;
 use crate::SPECIAL_ROOT_DOMAIN_NAME;
 
 #[rocket::get("/admin/<domain>/subdomains")]
@@ -12,18 +13,14 @@ pub async fn admin_domain_subdomains_get(session: Option<Session>, domain: &str)
 
 pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<Session>, domain: &str, error: Option<&str>) -> Return {
     let session = match session {
-        None => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(unauth_error(domain)),
-        })),
-        Some(v) => v,
+        None => return (rocket::http::Status::Forbidden, DomainBase{
+            domain,
+            content: VIEW_ADMIN_PANEL_DOMAIN_NO_PERM,
+        }).into(),
+        Some(v) =>v,
     };
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, LIST_SUBDOMAIN_NO_PERM)),
-    }));
     let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
@@ -32,7 +29,7 @@ pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<
         !permissions.view_domain() ||
             !permissions.list_subdomain()
         {
-            return no_perm;
+            return UNAUTH(domain).into();
         }
     }
 
@@ -63,10 +60,10 @@ WHERE
         Err(err) => {
 
             log::error!("Error fetching accounts: {err}");
-            return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
-                content_type: rocket::http::ContentType::HTML,
-                content: Cow::Owned(template(domain, DATABASE_ERROR)),
-            }));
+            return (rocket::http::Status::InternalServerError, DomainBase{
+                domain,
+                content: DATABASE_ERROR,
+            }).into();
         }
     };
 

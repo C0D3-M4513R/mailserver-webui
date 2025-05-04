@@ -13,7 +13,7 @@ pub use aliases::admin_domain_aliases_get;
 use crate::rocket::auth::session::HEADER;
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::rocket::messages::{DATABASE_ERROR, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM, VIEW_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, LIST_SUBDOMAIN_NO_PERM, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM, VIEW_DOMAIN_NO_PERM};
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 use crate::rocket::template::authenticated::domain::index::{DomainAccount, DomainIndex, DomainName};
 use super::super::{Session, Return, TypedContent};
@@ -99,7 +99,6 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
     let permissions = match session.get_permissions().get(domain) {
         None => return (rocket::http::Status::Forbidden, DomainBase{
             domain,
-            permission: None,
             content: VIEW_ADMIN_PANEL_DOMAIN_NO_PERM,
         }).into(),
         Some(v) => v,
@@ -108,7 +107,6 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
     if !permissions.admin() && !permissions.view_domain() {
         return (rocket::http::Status::Forbidden, DomainBase{
             domain,
-            permission: None,
             content: VIEW_DOMAIN_NO_PERM,
         }).into();
     }
@@ -188,6 +186,7 @@ FROM owner_domains
         accounts: owner,
     }).into()
 }
-pub(in crate::rocket) fn unauth_error(domain: &str) -> String {
-    template(domain, format!(r#"<p>You are unable to access the Admin-Panel for the domain {domain}.</p>"#))
-}
+pub(crate) const UNAUTH:fn(&str) -> (rocket::http::Status, DomainBase<'_, &'static str>) = |domain| (rocket::http::Status::Forbidden, DomainBase{
+    domain,
+    content: LIST_SUBDOMAIN_NO_PERM,
+});

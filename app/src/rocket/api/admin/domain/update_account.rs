@@ -1,11 +1,11 @@
-use std::borrow::Cow;
+use crate::rocket::response::Return;
 use crate::rocket::auth::check_password::set_password;
-use crate::rocket::content::admin::domain::{template, unauth_error};
+use crate::rocket::content::admin::domain::UNAUTH;
 use crate::rocket::content::admin::domain::account::admin_domain_account_get_impl;
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, DATABASE_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
-use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
 use crate::rocket::auth::permissions::{UpdatePermissions};
+use crate::rocket::template::authenticated::domain_base::DomainBase;
 
 pub(super) mod private{
     #[derive(rocket::form::FromForm)]
@@ -29,43 +29,39 @@ pub async fn admin_domain_account_email_put(
     user_name: &'_ str,
     data: rocket::form::Form<private::UpdateAccountEmail<'_>>
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
     if !data.email.is_ascii() {
-        return Return::Content((rocket::http::Status::BadRequest, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, ACCOUNT_INVALID_CHARS)),
-        }));
+        return (rocket::http::Status::BadRequest, DomainBase{
+            domain,
+            content: ACCOUNT_INVALID_CHARS,
+        }).into();
     }
     let pool = crate::get_db().await;
 
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, MODIFY_ACCOUNT_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: MODIFY_ACCOUNT_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_accounts() {
-        return no_perm;
+        return no_perm.into();
     }
 
     match sqlx::query!("SELECT set_user_email(users.id, $1, $2) as id from users WHERE email = $3 AND domain_id = $4",
         data.email, session.get_user_id(), user_name, permission.domain_id())
         .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
-        Ok(None) => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, DATABASE_PERMISSION_ERROR)),
-        })),
+        Ok(None) => return (rocket::http::Status::Forbidden, DomainBase{
+            domain,
+            content: DATABASE_PERMISSION_ERROR,
+        }).into(),
         Err(err) => {
             log::error!("Error updating account: {err}");
             let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
@@ -83,28 +79,24 @@ pub async fn admin_domain_account_user_permission_put(
     user_name: &'_ str,
     data: rocket::form::Form<private::UpdateUserPermissions>,
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
-    let pool = crate::get_db().await;
 
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, MODIFY_ACCOUNT_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: MODIFY_ACCOUNT_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_accounts() {
-        return no_perm;
+        return no_perm.into();
     }
 
+    let pool = crate::get_db().await;
     let self_user_id = session.get_user_id();
     let self_change_password = data.self_change_password;
     match sqlx::query!("MERGE INTO user_permission
@@ -135,29 +127,24 @@ pub async fn admin_domain_account_password_put(
     user_name: &'_ str,
     data: rocket::form::Form<private::UpdateAccountPassword>,
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
-    let pool = crate::get_db().await;
-
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, MODIFY_ACCOUNT_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: MODIFY_ACCOUNT_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_accounts() {
-        return no_perm;
+        return no_perm.into();
     }
 
+    let pool = crate::get_db().await;
     match set_password(pool, Err((user_name, permission.domain_id())), session.get_user_id(), data.into_inner().password).await {
         Err(err) => {
             log::error!("Error setting password: {err}");
@@ -179,29 +166,25 @@ pub async fn admin_domain_account_permissions_put(
     user_name: &'_ str,
     data: rocket::form::Form<UpdatePermissions>,
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
-    let pool = crate::get_db().await;
 
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, MANAGE_PERMISSION_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: MANAGE_PERMISSION_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.manage_permissions() {
-        return no_perm;
+        return no_perm.into();
     }
 
+    let pool = crate::get_db().await;
     match data.apply_perms(session.get_user_id(), permission.domain_id(), pool).await {
         Ok(_) => {  },
         Err(err) => {

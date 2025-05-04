@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use crate::rocket::auth::permissions::UpdatePermissions;
-use crate::rocket::content::admin::domain::{template, unauth_error};
+use crate::rocket::content::admin::domain::{template, UNAUTH};
 use crate::rocket::content::admin::domain::permissions::admin_domain_permissions_get_impl;
 use crate::rocket::content::admin::domain::subdomains::admin_domain_subdomains_get_impl;
 use crate::rocket::messages::{DATABASE_ERROR, DATABASE_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_DOMAIN_NO_PERM, SUBDOMAIN_INVALID_CHARS};
@@ -19,12 +19,8 @@ mod private{
 
 #[rocket::put("/admin/<domain>/name", data = "<data>")]
 pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, data: rocket::form::Form<private::RenameSubdomain<'_>>) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
@@ -68,12 +64,8 @@ pub async fn admin_domain_name_put(session: Option<Session>, domain: &'_ str, da
 #[rocket::put("/admin/<domain>/accepts_email", data = "<data>")]
 #[allow(non_snake_case)]
 pub async fn admin_domain__accepts_email__put(session: Option<Session>, domain: &'_ str, data: rocket::form::Form<private::AcceptsEmail>) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
     let pool = crate::get_db().await;
@@ -115,12 +107,8 @@ pub async fn admin_domain_permissions_put(
     domain: &'_ str,
     data: rocket::form::Form<UpdatePermissions>
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 

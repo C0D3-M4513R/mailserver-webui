@@ -1,9 +1,9 @@
-use std::borrow::Cow;
+use crate::rocket::response::Return;
 use crate::rocket::auth::check_password::get_password_hash;
-use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, template, unauth_error};
+use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, UNAUTH};
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, DATABASE_PERMISSION_ERROR};
-use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
+use crate::rocket::template::authenticated::domain_base::DomainBase;
 
 mod private{
     #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
@@ -19,12 +19,8 @@ pub async fn create_account(
     domain: &'_ str,
     data: rocket::form::Form<private::CreateAccount<'_>>
 ) -> Return {
-    let unauth_error = Return::Content((rocket::http::Status::Unauthorized, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(unauth_error(domain)),
-    }));
     let session = match session {
-        None => return unauth_error,
+        None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
 
@@ -37,24 +33,24 @@ pub async fn create_account(
         v == '{' || v == '|' || v == '}' || v == '~' ||
         v == char::from(177) //177 = Delete
     ) {
-        return Return::Content((rocket::http::Status::BadRequest, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, ACCOUNT_INVALID_CHARS)),
-        }));
+        return (rocket::http::Status::BadRequest, DomainBase{
+            domain,
+            content: ACCOUNT_INVALID_CHARS,
+        }).into();
     }
 
     let pool = crate::get_db().await;
 
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, CREATE_ACCOUNT_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: CREATE_ACCOUNT_NO_PERM,
+    });
     let permission = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.create_accounts() {
-        return no_perm;
+        return no_perm.into();
     }
 
     let mut transaction = match pool.begin().await {
