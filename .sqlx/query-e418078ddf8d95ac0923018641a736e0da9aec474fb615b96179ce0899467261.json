@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nSELECT\n    domains.name AS \"name!\",\n    super_domains.name AS \"super_domain!\"\nFROM domains\nJOIN virtual_domains super_domains ON domains.super = super_domains.id\nWHERE domains.id = $1\n",
+  "query": "\nSELECT\ndomains.name AS \"name!\",\nsuper_domains.name AS \"super_domain!\"\nFROM domains\nJOIN virtual_domains super_domains ON domains.super = super_domains.id\nWHERE domains.id = $1\n",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       true
     ]
   },
-  "hash": "1d52992031af93cdb62add2459a561836fefe978dfdb949b2802b176f86a8a70"
+  "hash": "e418078ddf8d95ac0923018641a736e0da9aec474fb615b96179ce0899467261"
 }
