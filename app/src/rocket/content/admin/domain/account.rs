@@ -97,17 +97,17 @@ WHERE users.email = $1 AND users.domain_id = $2
 
     let account_info = format!(r#"
 <h2>Account Information:</h2>
-<form method="POST" action="/admin/{domain}/accounts/{user_name}/email">
+<form method="POST" action="/api/admin/{domain}/accounts/{user_name}/email">
     <input type="hidden" name="_method" value="PUT" />
     <label>Email: <a><input type="text" name="email" value="{user_name}" {modify_account} />@{domain}</a></label>
     <input type="submit" name="action" value="Update Email" {modify_account}/>
 </form>
-<form method="POST" action="/admin/{domain}/accounts/{user_name}/password">
+<form method="POST" action="/api/admin/{domain}/accounts/{user_name}/password">
     <input type="hidden" name="_method" value="PUT" />
     <label>Password: <input type="password" name="password" {modify_account} /></label>
     <input type="submit" value="Update Password" {modify_account}/>
 </form>
-<form method="Post" action="/admin/{domain}/accounts/{user_name}/user_permission">
+<form method="Post" action="/api/admin/{domain}/accounts/{user_name}/user_permission">
     <input type="hidden" name="_method" value="PUT" />
     <label>Allow user to Change their Password themselves: <input type="checkbox" name="self_change_password" {self_change_password} {modify_account} /></label>
     <input type="submit" value="Update User Permission" {modify_account}/>
@@ -134,7 +134,7 @@ WHERE users.email = $1 AND users.domain_id = $2
                 }).reduce(|a, b| format!("{a}{b}")).unwrap_or_default();
                 format!(r#"
                 <h2>Aliases pointing to this Account:</h2>
-                <form method="POST" action="/admin/{domain}/accounts/{user_name}/aliases">
+                <form method="POST" action="/api/admin/{domain}/accounts/{user_name}/aliases">
                 {delete}
                 <table>
                     <tr><th>Selected</th><th>Source</th></tr>
@@ -175,7 +175,7 @@ WHERE users.email = $1 AND users.domain_id = $2
         format!(r#"
 <h2>Permissions:</h2>
 <p>Notice: Without List permissions, Modification permissions are useless. Also, Modification permission imply Delete permissions</p>
-<form method="POST" action="/admin/{domain}/accounts/{user_name}/permissions" onsubmit="(event)=>event.target.reset()">
+<form method="POST" action="/api/admin/{domain}/accounts/{user_name}/permissions" onsubmit="(event)=>event.target.reset()">
     <input type="hidden" name="_method" value="PUT"/>
     <input type="hidden" name="users[{user_id}].enabled" value="on"/>
     <input type="hidden" name="domain_id" value="{domain_id}"/>

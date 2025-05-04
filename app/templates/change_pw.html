@@ -1,0 +1,25 @@
+{% import "parts/email_settings.html" as email_settings %}
+{% import "parts/authenticated/header.html" as header %}
+{% extends "base.html" %}
+
+
+{% block title %}
+Password-Change
+{% endblock %}
+
+{% block content %}
+<h1>Password-Change</h1>
+{% call header::header() %}
+{% if let Some(error) = error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+{% if !block_change_pw %}
+<form method="POST" action="/api/admin/change_pw">
+  <input type="hidden" name="_method" value="PUT"/>
+  <label>Old Password: <input type="password" name="old_password"/></label>
+  <label>New Password: <input type="password" name="new_password"/></label>
+  <label>Confirm New Password: <input type="password" name="new_password1"/></label>
+  <input type="submit" value="Submit">
+</form>
+{% endif %}
+{% endblock %}

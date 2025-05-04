@@ -144,7 +144,7 @@ WHERE domains.id = $1"#, permissions.domain_id())
 <p>Notice: Without List permissions, Modification permissions are useless. Also, Modification permission imply Delete permissions</p>
 <p>Inherited permissions means, that if the user has a permission defined on a parent domain, it will be inherited to this domain. Inherited permissions usually means false.</p>
 <p>Owners bypass all permission checks.</p>
-<form method="POST" action="permissions" onsubmit="(event)=>event.target.reset()">
+<form method="POST" action="/api/admin/domain/{domain}/permissions">
 {update_permissions}
     <table>
         <tr>

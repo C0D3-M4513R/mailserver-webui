@@ -1,9 +1,13 @@
+pub const SESSION_ISSUE:&str = r#"You are not logged-in."#;
+
 pub const INCORRECT_PASSWORD:&str = r#"Either no email exists or the provided password was incorrect"#;
 pub const OTHER_PASSWORD_ISSUE:&str = r#"There was an unknown Error, whilst verifying your Login information."#;
 pub const GET_PERMISSION_ERROR:&str = r#"There was an Error, whilst fetching your permissions."#;
 pub const SELF_CHANGE_PASSWORD_NO_PERM:&str = r#"You don't have the permission to change your password."#;
 pub const SELF_CHANGE_PASSWORD_ERROR:&str = r#"There was an error whilst trying to change your password."#;
 
+pub const VIEW_ADMIN_PANEL_NO_PERM:&str = r#"You don't have the permission to enter the admin panel."#;
+pub const VIEW_ADMIN_PANEL_DOMAIN_NO_PERM:&str = r#"You are unable to access the Admin-Panel for this domain."#;
 pub const LIST_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to list accounts."#;
 pub const CREATE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to create this accounts."#;
 pub const DELETE_ACCOUNT_NO_PERM:&str = r#"You don't have the permission to delete this account."#;

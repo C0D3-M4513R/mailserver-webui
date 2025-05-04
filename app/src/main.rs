@@ -1,8 +1,14 @@
 mod rocket;
 
-const SPECIAL_ROOT_DOMAIN_NAME:&str = "root";
-const WEBMAIL_DOMAIN:&str = "https://webmail.c0d3m4513r.com";
-const MAIL_DOMAIN:&str = "mail.c0d3m4513r.com";
+//noinspection RsReplaceMatchExpr - unwrap_or is not a const_fn.
+macro_rules! const_env {
+    ($name:literal, $default:expr) => {
+        match option_env!($name){ Some(v) => v, None => $default }
+    };
+}
+pub const SPECIAL_ROOT_DOMAIN_NAME:&str = const_env!("SPECIAL_ROOT_DOMAIN_NAME","root");
+pub const WEBMAIL_DOMAIN:&str = const_env!("WEBMAIL_DOMAIN", "https://webmail.c0d3m4513r.com");
+pub const MAIL_DOMAIN:&str = const_env!("MAIL_DOMAIN", "mail.c0d3m4513r.com");
 pub(crate) async fn get_db<'a>() -> sqlx::postgres::PgPool {
     static MYSQL: tokio::sync::OnceCell<sqlx::postgres::PgPool> = tokio::sync::OnceCell::const_new();
     MYSQL.get_or_init(||async {
@@ -101,49 +107,110 @@ async fn launch() -> anyhow::Result<()> {
  //    let test:Vec<Option<bool>> = v.test;
 
     ::rocket::build()
-        .mount("/", ::rocket::routes![
-            rocket::index_get,
+        .attach(CORS)
+        .mount("/api", ::rocket::routes![
+            //Auth
             rocket::index_post,
+            rocket::auth_check_login,
             rocket::logout_post,
 
-            rocket::admin_get,
-            rocket::admin_domain_get,
+            //Domain Settings
             rocket::admin_domain_name_put,
             rocket::admin_domain__accepts_email__put,
             rocket::admin_domain_owner_put,
-            //Account Overview
-            rocket::admin_domain_accounts_get,
+            //Domain Email Accounts
             rocket::admin_domain_accounts_put,
             rocket::admin_domain_accounts_delete,
             rocket::admin_domain_accounts_delete_post,
             rocket::admin_domain_accounts_restore_post,
-            //Single-Account Stuff
-            rocket::admin_domain_account_get,
+            //Domain Email Account Settings
             rocket::admin_domain_account_delete,
             rocket::admin_domain_account_email_put,
             rocket::admin_domain_account_password_put,
             rocket::admin_domain_account_user_permission_put,
             rocket::admin_domain_account_permissions_put,
             rocket::admin_domain_account_aliases_delete,
-            //Subdomain Overview
-            rocket::admin_domain_subdomains_get,
+            //Subdomain Settings
             rocket::admin_domain_subdomains_put,
             rocket::admin_domain_subdomains_delete,
             rocket::admin_domain_subdomains_delete_post,
             rocket::admin_domain_subdomains_recover_post,
-            //Permissions
-            rocket::admin_domain_permissions_get,
-            rocket::admin_domain_permissions_put,
-            //Aliases
-            rocket::admin_domain_aliases_get,
+            //Domain Email Aliases
             rocket::admin_domain_aliases_delete,
             rocket::admin_domain_aliases_put,
-
-            rocket::admin_get_change_pw,
+            //Domain Permissions
+            rocket::admin_domain_permissions_put,
+            //Account Settings
             rocket::admin_put_change_pw,
+        ])
+        .mount("/", ::rocket::routes![
+            rocket::index_get,                      //login
+            rocket::admin_get,                      //admin  dashboard
+            rocket::admin_domain_get,               //domain dashboard
+            rocket::admin_domain_accounts_get,      //Account Overview
+            rocket::admin_domain_account_get,       //Single-Account Stuff
+            rocket::admin_domain_subdomains_get,    //Subdomain Overview
+            rocket::admin_domain_permissions_get,   //Permissions
+            rocket::admin_domain_aliases_get,       //Aliases
+            rocket::admin_get_change_pw,            //Account PW-Change
         ])
         .launch()
         .await?;
 
     Ok(())
+}
+
+
+
+pub struct CORS;
+
+#[::rocket::async_trait]
+impl ::rocket::fairing::Fairing for CORS {
+    fn info(&self) -> ::rocket::fairing::Info {
+        ::rocket::fairing::Info {
+            name: "Add CORS headers to responses",
+            kind: ::rocket::fairing::Kind::Response
+        }
+    }
+
+    async fn on_response<'r>(&self, _request: &'r ::rocket::request::Request<'_>, response: &mut ::rocket::Response<'r>) {
+        // response.set_header(::rocket::http::Header::new("Vary", "Sec-Fetch-Mode, Sec-Fetch-Site, Origin"));
+        match _request.headers().get("Sec-Fetch-Mode").next() {
+            Some("cors") => {},
+            _ => return,
+        }
+        match _request.headers().get("Sec-Fetch-Site").next() {
+            Some("cross-site") => {},
+            _ => return,
+        }
+        match _request.headers().get("Origin").next() {
+            Some("http://localhost:4200") => {},
+            _ => return,
+        }
+        let methods = _request
+            .rocket()
+            .routes()
+            .filter(|r|&r.uri.origin == _request.uri())
+            .map(|r|r.method)
+            .collect::<::std::collections::HashSet<_>>()
+            .into_iter()
+            .map(|v|v.as_str().to_string())
+            .reduce(|mut a,b|{
+                a.push(',');
+                a.push(' ');
+                a.push_str(b.as_str());
+                a
+            });
+        let methods = match methods {
+            None => return,
+            Some(v) => v,
+        };
+        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Methods", methods));
+        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Origin", "http://localhost:4200"));
+        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Headers", "*"));
+        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Credentials", "true"));
+        if _request.method() == ::rocket::http::Method::Options {
+            response.set_status(::rocket::http::Status::Ok);
+        }
+    }
 }

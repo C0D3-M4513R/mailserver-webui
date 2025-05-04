@@ -1,0 +1,17 @@
+{% import "parts/email_settings.html" as email_settings %}
+{% import "parts/authenticated/header.html" as header %}
+{% extends "base.html" %}
+
+
+{% block title %}
+{{domain}}'s Mail-Admin-Panel
+{% endblock %}
+
+{% block content %}
+<h1>{{domain}}'s Mail-Admin-Panel</h1>
+{% call header::header() %}
+<p>Welcome to the admin page</p>
+{% block domain_content %}
+{{content}}
+{% endblock %}
+{% endblock %}

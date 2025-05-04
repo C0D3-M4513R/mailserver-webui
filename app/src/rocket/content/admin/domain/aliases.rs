@@ -92,7 +92,7 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
         let has_err = if has_err { "disabled" } else {""};
 
         format!(r#"<h2>Create new Alias:</h2>
-<form method="POST">
+<form method="POST" action="/api/admin/domain/{domain}/aliases">
     <input type="hidden" name="_method" value="PUT" />
     <label>Source: <a></a><input type="text" name="source" pattern="[a-zA-Z0-9\(\)\*\,\-\.\[\]\_]+" {has_err}/>@{domain}</a></label><br>
     <label>Target: <a><select name="user" {has_err}>{destination}</select></label><br>
@@ -117,7 +117,7 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
 {new_account}
 <h2>Existing Aliases:</h2>
 <p>Emails, that are sent to a Source-Email will be redirected to the Target-Email. Also the Target-Email can send as the Source-Email.</p>
-<form method="POST">
+<form method="POST"  action="/api/admin/domain/{domain}/aliases">
 {delete}
     <table>
         <tr>

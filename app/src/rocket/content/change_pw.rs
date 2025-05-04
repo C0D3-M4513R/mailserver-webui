@@ -1,5 +1,6 @@
 use std::borrow::Cow;
-use super::{Session, Return, TypedContent, SESSION_HEADER};
+use crate::rocket::template::change_pw::ChangePw;
+use super::{Session, Return, SESSION_HEADER};
 use super::super::messages::SELF_CHANGE_PASSWORD_NO_PERM;
 
 pub(in crate::rocket) const HEAD:&str = const_format::formatcp!(r#"
@@ -36,16 +37,16 @@ pub async fn admin_get_change_pw(session: Option<Session>) -> Return {
     };
 
     if !session.get_user_permission().self_change_password() {
-        return Return::Content((rocket::http::Status::Forbidden, TypedContent {
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Borrowed(const_format::concatcp!(HEAD,SELF_CHANGE_PASSWORD_NO_PERM, TAIL))
-        }));
+        return (rocket::http::Status::Forbidden, ChangePw{
+                error: Some(Cow::Borrowed(SELF_CHANGE_PASSWORD_NO_PERM)),
+                block_change_pw: true
+            }).into();
     }
 
 
-    Return::Content((rocket::http::Status::Ok, TypedContent {
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Borrowed(const_format::concatcp!(HEAD, FORM, TAIL))
-    }))
+    (rocket::http::Status::Ok, ChangePw{
+        error: None,
+        block_change_pw: false
+    }).into()
 }
 

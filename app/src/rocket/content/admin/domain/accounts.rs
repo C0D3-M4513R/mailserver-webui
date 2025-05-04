@@ -89,8 +89,8 @@ WHERE users.domain_id = $1 AND deleted = true"#, permissions.domain_id())
                     }).fold(String::new(), |a,b|format!("{a}{b}"));
                     format!(r#"<h2>Disabled Accounts:</h2>
                     <form method="POST">
-                    <button type="submit" formaction="accounts/restore">Restore Selected Accounts</button>
-                    <button type="submit" formaction="accounts/delete">Permanently Delete Selected Accounts</button>
+                    <button type="submit" formaction="/api/admin/domain/{domain}/accounts/restore">Restore Selected Accounts</button>
+                    <button type="submit" formaction="/api/admin/domain/{domain}/accounts/delete">Permanently Delete Selected Accounts</button>
                     <table>
                         <tr><th>Selected</th><th>Email</th></tr>
                     {deleted_accounts}
@@ -111,7 +111,7 @@ WHERE users.domain_id = $1 AND deleted = true"#, permissions.domain_id())
 
     let new_account = if permissions.admin() || permissions.create_accounts() {
         format!(r#"<h2>Create new Account:</h2>
-<form method="POST">
+<form method="POST" action="/api/admin/domain/{domain}/accounts">
     <input type="hidden" name="_method" value="PUT" />
     <label>Email: <a></a><input type="text" name="email" pattern="[a-zA-Z0-9\(\)\*\,\-\.\[\]\_]+" />@{domain}</a></label><br>
     <label>Password: <input type="password" name="password" /></label><br>
@@ -136,7 +136,7 @@ WHERE users.domain_id = $1 AND deleted = true"#, permissions.domain_id())
 {new_account}
 <table><tr><td>
 <h2>Existing Accounts:</h2>
-<form method="POST">
+<form method="POST" action="/api/admin/domain/{domain}/accounts">
 {delete}
     <table>
         <tr>

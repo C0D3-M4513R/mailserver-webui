@@ -1,0 +1,38 @@
+{% extends "authenticated/domain_base.html" %}
+
+{% block domain_content %}
+
+<h2>Manage Domain:</h2>
+{% if permissions.admin() || permissions.view_domain() %}
+<form method="POST" action="/api/admin/{{domain}}/accepts_email">
+    <input type="hidden" name="_method" value="PUT" />
+    <label>Accepts Email: <input type="checkbox" name="accepts_email" {% if permissions.domain_accepts_email() %} checked {% endif %} {% if !permissions.admin() && !permissions.modify_domain()%} disabled {% endif %}/></label>
+    <input type="submit" value="Update Accepts Email" {% if !permissions.admin() && !permissions.modify_domain()%} disabled {% endif %}/>
+</form>
+{% endif %}
+{% if let Some(rename) = rename %}
+<form method="POST" action="/api/admin/{{domain}}/name">
+    <input type="hidden" name="_method" value="PUT" />
+    <label>New Name:<a><input type="text" name="name" value="{{rename.self_name}}"/>.{{rename.super_name}}</a></label>
+    <input type="submit" value="Rename Domain"/>
+</form>
+{% endif %}
+{% if permissions.is_owner() %}
+<h2>Change Owner:</h2>
+{% if !accounts.is_empty() %}
+<form action="/api/admin/{{domain}}/owner" method="POST">
+    <input type="hidden" name="_method" value="PUT" />
+    <select name="owner">
+        {% for account in accounts.iter() %}
+            <option value="{{account.id}}" {% if account.true_owner %} selected {% endif %}>{{account.email}}@{{account.domain}}</option>
+        {% endfor %}
+    </select>
+    <input type="submit" value="Change Owner"/>
+</form>
+{% else %}
+<p>Cannot change Ownership, because there are no other visible Accounts to transfer Ownership to.</p>
+{% endif %}
+{% endif %}
+
+{% endblock %}
+

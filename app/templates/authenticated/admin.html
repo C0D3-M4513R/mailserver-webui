@@ -1,0 +1,23 @@
+{% import "parts/email_settings.html" as email_settings %}
+{% import "parts/authenticated/header.html" as header %}
+{% extends "base.html" %}
+
+
+{% block title %}
+Admin
+{% endblock %}
+
+{% block content %}
+<h1>Admin</h1>
+{% call header::header() %}
+<p>Welcome to the admin page</p>
+<p>Managable Domains:</p>
+
+<ul>
+    {% for domain in domains%}
+    <li><a href="/admin/{{domain}}">{{domain}}</a></li>
+    {% endfor %}
+</ul>
+
+{% call email_settings::email_settings() %}
+{% endblock %}

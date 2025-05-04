@@ -13,7 +13,9 @@ pub use aliases::admin_domain_aliases_get;
 use crate::rocket::auth::session::HEADER;
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::rocket::messages::{DATABASE_ERROR, VIEW_DOMAIN_NO_PERM};
+use crate::rocket::messages::{DATABASE_ERROR, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM, VIEW_DOMAIN_NO_PERM};
+use crate::rocket::template::authenticated::domain_base::DomainBase;
+use crate::rocket::template::authenticated::domain::index::{DomainAccount, DomainIndex, DomainName};
 use super::super::{Session, Return, TypedContent};
 
 pub(in crate::rocket) fn template(domain: &str, content: impl Display) -> String {
@@ -94,28 +96,29 @@ pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return 
         None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
         Some(v) => v,
     };
-    let unauth_error = template(domain, r#"<p>You are unable to access the Admin-Panel for this domain.</p>"#);
     let permissions = match session.get_permissions().get(domain) {
-        None => return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(unauth_error),
-        })),
+        None => return (rocket::http::Status::Forbidden, DomainBase{
+            domain,
+            permission: None,
+            content: VIEW_ADMIN_PANEL_DOMAIN_NO_PERM,
+        }).into(),
         Some(v) => v,
     };
 
     if !permissions.admin() && !permissions.view_domain() {
-        return Return::Content((rocket::http::Status::Forbidden, TypedContent{
-            content_type: rocket::http::ContentType::HTML,
-            content: Cow::Owned(template(domain, VIEW_DOMAIN_NO_PERM)),
-        }));
+        return (rocket::http::Status::Forbidden, DomainBase{
+            domain,
+            permission: None,
+            content: VIEW_DOMAIN_NO_PERM,
+        }).into();
     }
 
     let db = crate::get_db().await;
-    let manage_domain = if permissions.admin() || permissions.modify_domain() {
+    let rename = if permissions.admin() || permissions.modify_domain() {
         let name = match sqlx::query!(r#"
 SELECT
-    domains.name AS "name!",
-    super_domains.name AS "super_domain!"
+domains.name AS "name!",
+super_domains.name AS "super_domain!"
 FROM domains
 JOIN virtual_domains super_domains ON domains.super = super_domains.id
 WHERE domains.id = $1
@@ -125,7 +128,7 @@ WHERE domains.id = $1
         {
             Err(err) => {
                 log::debug!("Error fetching domain: {err}");
-                return Return::Content((rocket::http::Status::InternalServerError, TypedContent{
+                return Return::Content((rocket::http::Status::InternalServerError, TypedContent {
                     content_type: rocket::http::ContentType::HTML,
                     content: Cow::Owned(template(domain, DATABASE_ERROR)),
                 }));
@@ -134,31 +137,15 @@ WHERE domains.id = $1
         };
         let super_domain = name.super_domain;
         let name = name.name;
-        format!(r#"
-     <form method="POST" action="/admin/{domain}/name">
-        <input type="hidden" name="_method" value="PUT" />
-        <label>New Name:<a><input type="text" name="name" value="{name}"/>.{super_domain}</a></label>
-        <input type="submit" value="Rename Domain"/>
-    </form>
-    "#)
+        Some(DomainName{
+            self_name: name,
+            super_name: super_domain,
+        })
     } else {
-        String::new()
-    };
-
-    let manage_domain = {
-        let domain_accepts_email = if permissions.domain_accepts_email() { "checked" } else {""};
-        let view_only = if !permissions.admin() && !permissions.modify_domain() { "disabled" } else {""};
-        format!(r#"
-<form method="POST" action="/admin/{domain}/accepts_email">
-    <input type="hidden" name="_method" value="PUT" />
-    <label>Accepts Email: <input type="checkbox" name="accepts_email" {domain_accepts_email} {view_only}/></label>
-    <input type="submit" value="Update Accepts Email" {view_only}/>
-</form>
-{manage_domain}
-"#)
+        None
     };
     let owner = if permissions.is_owner() {
-        let accounts = match sqlx::query!(r#"
+        match sqlx::query!(r#"
 WITH owner_domains AS (
     SELECT id, name FROM virtual_domains WHERE $1 = ANY(domain_owner)
     UNION
@@ -183,45 +170,23 @@ FROM owner_domains
                 }));
             },
             Ok(v) => {
-                v.into_iter().map(|v|{
-                    let id = v.id;
-                    let domain = v.domain;
-                    let selected = if v.true_owner {
-                        r#"selected="selected""#
-                    } else {""};
-                    let email = v.email;
-                    format!(r#"<option value="{id}" {selected}>{email}@{domain}</option>"#)
-                })
-                    .fold(String::new(), |mut a, b|{a.push_str(&b); a})
+                v.into_iter().map(|v|DomainAccount{
+                    id: v.id,
+                    true_owner: v.true_owner,
+                    email: v.email,
+                    domain: v.domain,
+                }).collect::<Vec<_>>()
             }
-        };
-        if !accounts.is_empty() {
-            format!(r#"
-<h2>Change Owner:</h2>
-    <form action="/admin/{domain}/owner" method="POST">
-    <input type="hidden" name="_method" value="PUT" />
-    <select name="owner">
-        {accounts}
-    </select>
-    <input type="submit" value="Change Owner"/>
-    </form>
-            "#)
-        } else {
-            String::new()
         }
     } else {
-        String::new()
+        Vec::new()
     };
-    let header = domain_linklist(&session, domain);
-    Return::Content((rocket::http::Status::Ok, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, format!(r#"
-{header}
-<h2>Manage Domain:</h2>
-{manage_domain}
-{owner}
-        "#))),
-    }))
+    (rocket::http::Status::Ok, DomainIndex{
+        domain,
+        permissions,
+        rename,
+        accounts: owner,
+    }).into()
 }
 pub(in crate::rocket) fn unauth_error(domain: &str) -> String {
     template(domain, format!(r#"<p>You are unable to access the Admin-Panel for the domain {domain}.</p>"#))

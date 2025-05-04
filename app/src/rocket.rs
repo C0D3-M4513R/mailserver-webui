@@ -3,8 +3,11 @@ mod auth;
 mod response;
 mod api;
 mod content;
+mod template;
 
 pub use api::{
+    index_post,
+    auth_check_login,
     admin_domain_accounts_delete,
     admin_domain_accounts_delete_post,
     admin_domain_accounts_restore_post,
@@ -29,7 +32,7 @@ pub use api::{
     admin_domain_owner_put,
 };
 pub use content::{
-    index_post, index_get,
+    index_get,
     admin_get_change_pw,
     admin_domain_accounts_get, admin_domain_account_get,
     admin_domain_subdomains_get,

@@ -1,0 +1,19 @@
+{% import "parts/email_settings.html" as email_settings %}
+{% import "parts/header.html" as header %}
+{% extends "base.html" %}
+
+
+{% block content %}
+<h1>Mailserver Admin</h1>
+{% call header::header() %}
+{% if let Some(error) = error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+<form method="POST" action="/api/auth/login">
+    <label>E-Mail: <input type="email" name="email"/></label>
+    <label>Password: <input type="password" name="password"/></label>
+    <label>Submit: <input type="submit"/></label>
+</form>
+
+{% call email_settings::email_settings() %}
+{% endblock %}

@@ -162,6 +162,14 @@ impl Session{
     }
 }
 impl Permission {
+    const DUMMY_PERMISSION: Self = Self{
+        domain_id: 0,
+        super_owner: false,
+        is_owner: false,
+        domain_accepts_email: false,
+        domain_level: 0,
+        $($ident : false,)*
+    };
     pub(super) const fn new(
         domain_id: i64,
         super_owner: bool,

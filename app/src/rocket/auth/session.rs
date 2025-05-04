@@ -141,7 +141,7 @@ pub const HEADER:&str = const_format::formatcp!(
 );
 
 const LOGOUT:&str = r#"
-    <form action="/logout" method="POST">
+    <form action="/api/logout" method="POST">
         <input type="submit" value="Logout"></input>
     </form>
 "#;

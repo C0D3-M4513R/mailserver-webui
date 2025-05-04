@@ -1,6 +1,6 @@
 [package]
 name = "mailserver-web"
-version = "0.1.19"
+version = "0.1.20"
 edition = "2021"
 
 
@@ -13,6 +13,7 @@ const_format = "0.2.34"#compile-time string formatting
 anyhow = "1.0.97"#error handling
 thiserror = "2.0.12"
 mailserver-web-macro = { path = "../macro" }
+askama = "0.14.0" #template engine
 
 #logging
 log = "0.4.26"

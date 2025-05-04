@@ -1,0 +1,23 @@
+{% macro header(domain, permissions) %}
+<div class="header">
+  <a href="/admin">Back to Main-Panel</a>
+  <a href="/admin/{domain}">Domain Main Overview</a>
+{% match permissions %}
+{% when Self::None %}
+{% when Self::Some(permissions) %}
+
+{% if permissions.admin() || permissions.list_accounts() %}
+  <a href="/admin/{{domain}}/accounts">Manage Accounts</a>
+{% endif %}
+{% if permissions.admin() || permissions.list_permissions() %}
+  <a href="/admin/{{domain}}/permissions">Manage Permissions</a>
+{% endif %}
+{% if permissions.admin() || permissions.list_subdomain() %}
+  <a href="/admin/{{domain}}/subdomains">Manage Subdomains</a>
+{% endif %}
+{% if permissions.admin() || permissions.list_alias() %}
+  <a href="/admin/{{domain}}/aliases">Manage Aliases</a>
+{% endif %}
+{% endmatch %}
+</div>
+{% endmacro %}
