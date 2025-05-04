@@ -3,6 +3,7 @@ use crate::rocket::content::admin::domain::{domain_linklist, template, UNAUTH};
 use crate::rocket::messages::{DATABASE_ERROR, LIST_ACCOUNT_NO_PERM};
 use crate::rocket::response::{Return, TypedContent};
 use crate::rocket::auth::session::Session;
+use crate::rocket::template::authenticated::domain_base::DomainBase;
 
 #[rocket::get("/admin/<domain>/aliases")]
 pub async fn admin_domain_aliases_get(session: Option<Session>, domain: &str) -> Return {
@@ -14,12 +15,12 @@ pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: Option<Ses
         None => return UNAUTH(domain).into(),
         Some(v) => v,
     };
-    let no_perm = Return::Content((rocket::http::Status::Forbidden, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, LIST_ACCOUNT_NO_PERM)),
-    }));
+    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+        domain,
+        content: LIST_ACCOUNT_NO_PERM,
+    });
     let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm,
+        None => return no_perm.into(),
         Some(v) => v,
     };
 
@@ -28,7 +29,7 @@ pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: Option<Ses
         !permissions.view_domain() ||
             !permissions.list_alias()
         {
-            return no_perm;
+            return no_perm.into();
         }
     }
 
