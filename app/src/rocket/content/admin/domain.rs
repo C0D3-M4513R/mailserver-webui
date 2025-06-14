@@ -14,7 +14,7 @@ use crate::rocket::auth::session::HEADER;
 use std::fmt::Display;
 use crate::rocket::messages::{DATABASE_ERROR, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM, VIEW_DOMAIN_NO_PERM};
 use crate::rocket::template::authenticated::domain_base::DomainBase;
-use crate::rocket::template::authenticated::domain::index::{DomainAccount, DomainIndex, DomainName};
+use crate::rocket::template::authenticated::domain::index::{Dkim, DkimKey, DomainAccount, DomainIndex, DomainName};
 use super::super::{Session, Return};
 
 pub(in crate::rocket) fn template(domain: &str, content: impl Display) -> String {
@@ -178,11 +178,35 @@ FROM owner_domains
     } else {
         Vec::new()
     };
+    let dkim = if permissions.admin() || permissions.modify_domain() {
+        let res = match sqlx::query!("SELECT selector, private_key, active FROM dkim WHERE domain_id = $1", permissions.domain_id())
+            .fetch_all(&db)
+            .await {
+            Ok(v) => v,
+            Err(err) => {
+                log::debug!("Error fetching domain dkim data: {err}");
+                return (rocket::http::Status::InternalServerError, DomainBase {
+                    domain,
+                    content: DATABASE_ERROR,
+                }).into();
+            },
+        };
+        Some(res.into_iter().map(|v|{
+            let key = DkimKey::from_data(&v.private_key);
+            Dkim{
+                selector: v.selector,
+                domain: domain.to_string(),
+                key,
+                active: v.active,
+            }
+        }).collect())
+    } else {None};
     (rocket::http::Status::Ok, DomainIndex{
         domain,
         permissions,
         rename,
         accounts: owner,
+        dkim
     }).into()
 }
 pub(crate) const UNAUTH:fn(&str) -> (rocket::http::Status, DomainBase<'_, &'static str>) = |domain| (rocket::http::Status::Forbidden, DomainBase{

@@ -34,6 +34,32 @@
 <p>Cannot change Ownership, because there are no other visible Accounts to transfer Ownership to.</p>
 {% endif %}
 {% endif %}
+{% if let Some(dkim) = dkim %}
+<h2>Dkim Keys:</h2>
+<table>
+    <tr>
+        <th>selector</th>
+        <th>dns name</th>
+        <th>dns value</th>
+        <th>active</th>
+    </tr>
+{% for key in dkim %}
+<tr>
+    <td>{{ key.selector }}</td>
+    <td>{{ key.to_dns_name() }}</td>
+    <td><code style="word-break: break-all;">
+    {% match key.to_dns_value() %}
+    {% when Ok(public_key) %}
+        {{public_key}}
+    {% when Err(err) %}
+    {% endmatch %}
+    </code></td>
+    <td><form><input type="checkbox" {% if key.active %} checked {% endif %} name="{{ key.selector }}" disabled/></form></td>
+</tr>
+
+{% endfor %}
+</table>
+{% endif %}
 
 {% endblock %}
 

@@ -2,12 +2,13 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 16.6
--- Dumped by pg_dump version 16.6
+-- Dumped from database version 17.5
+-- Dumped by pg_dump version 17.5
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -30,6 +31,7 @@ ALTER DATABASE mailserver OWNER TO postgres;
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -363,6 +365,20 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: dkim; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.dkim (
+    domain_id bigint NOT NULL,
+    selector text NOT NULL,
+    private_key bytea NOT NULL,
+    active boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.dkim OWNER TO postgres;
+
+--
 -- Name: domains; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -377,20 +393,6 @@ CREATE TABLE public.domains (
 
 
 ALTER TABLE public.domains OWNER TO postgres;
-
---
--- Name: domains_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-ALTER TABLE public.domains ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.domains_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
 
 --
 -- Name: flattened_domains; Type: VIEW; Schema: public; Owner: postgres
@@ -435,6 +437,51 @@ CREATE VIEW public.flattened_domains AS
 
 
 ALTER VIEW public.flattened_domains OWNER TO postgres;
+
+--
+-- Name: dkim_enabled_domains; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.dkim_enabled_domains AS
+ SELECT dkim_enabled_domain.domain_id AS id,
+    flattened_domains.name AS domain_name
+   FROM (( SELECT DISTINCT dkim.domain_id
+           FROM public.dkim
+          WHERE dkim.active) dkim_enabled_domain
+     JOIN public.flattened_domains ON ((flattened_domains.id = dkim_enabled_domain.domain_id)));
+
+
+ALTER VIEW public.dkim_enabled_domains OWNER TO postgres;
+
+--
+-- Name: dkimkeys; Type: VIEW; Schema: public; Owner: postgres
+--
+
+CREATE VIEW public.dkimkeys AS
+ SELECT dkim.domain_id AS id,
+    flattened_domains.name AS domain_name,
+    dkim.selector,
+    regexp_replace(encode(dkim.private_key, 'base64'::text), '[\r\n]+'::text, ''::text, 'g'::text) AS private_key
+   FROM (public.dkim
+     JOIN public.flattened_domains ON ((flattened_domains.id = dkim.domain_id)))
+  WHERE dkim.active;
+
+
+ALTER VIEW public.dkimkeys OWNER TO postgres;
+
+--
+-- Name: domains_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public.domains ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.domains_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
 
 --
 -- Name: system_config; Type: VIEW; Schema: public; Owner: postgres
@@ -753,6 +800,14 @@ CREATE VIEW public.virtual_users AS
 ALTER VIEW public.virtual_users OWNER TO postgres;
 
 --
+-- Name: dkim domain_id; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.dkim
+    ADD CONSTRAINT domain_id PRIMARY KEY (domain_id, selector);
+
+
+--
 -- Name: user_permission user_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -836,6 +891,14 @@ CREATE TRIGGER virtual_users_delete INSTEAD OF DELETE ON public.virtual_users FO
 
 
 --
+-- Name: dkim dkim_domains_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.dkim
+    ADD CONSTRAINT dkim_domains_id_fk FOREIGN KEY (domain_id) REFERENCES public.domains(id);
+
+
+--
 -- Name: domains domains_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -907,6 +970,13 @@ GRANT CONNECT ON DATABASE mailserver TO mailuser;
 
 
 --
+-- Name: TABLE dkim; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT ON TABLE public.dkim TO mailuser;
+
+
+--
 -- Name: TABLE domains; Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -918,6 +988,20 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.domains TO mailuser;
 --
 
 GRANT SELECT,DELETE ON TABLE public.flattened_domains TO mailuser;
+
+
+--
+-- Name: TABLE dkim_enabled_domains; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT ON TABLE public.dkim_enabled_domains TO mailuser;
+
+
+--
+-- Name: TABLE dkimkeys; Type: ACL; Schema: public; Owner: postgres
+--
+
+GRANT SELECT ON TABLE public.dkimkeys TO mailuser;
 
 
 --
