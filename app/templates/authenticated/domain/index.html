@@ -47,7 +47,7 @@
 <tr>
     <td>{{ key.selector }}</td>
     <td>{{ key.to_dns_name() }}</td>
-    <td><code style="word-break: break-all;">
+    <td><code class="dns-value">
     {% match key.to_dns_value() %}
     {% when Ok(public_key) %}
         {{public_key}}

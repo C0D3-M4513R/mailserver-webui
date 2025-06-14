@@ -3,6 +3,7 @@ use super::auth::session::Session;
 pub mod index;
 pub mod admin;
 pub mod change_pw;
+mod style;
 
 pub use index::{index_get};
 pub use admin::{
@@ -14,3 +15,4 @@ pub use admin::{
     admin_get
 };
 pub use change_pw::{admin_get_change_pw};
+pub use style::get_styles_css;

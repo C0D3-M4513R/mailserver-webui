@@ -145,6 +145,7 @@ async fn launch() -> anyhow::Result<()> {
         ])
         .mount("/", ::rocket::routes![
             rocket::index_get,                      //login
+            rocket::get_styles_css,                 //styles
             rocket::admin_get,                      //admin  dashboard
             rocket::admin_domain_get,               //domain dashboard
             rocket::admin_domain_accounts_get,      //Account Overview

@@ -33,6 +33,7 @@ pub use api::{
 };
 pub use content::{
     index_get,
+    get_styles_css,
     admin_get_change_pw,
     admin_domain_accounts_get, admin_domain_account_get,
     admin_domain_subdomains_get,
