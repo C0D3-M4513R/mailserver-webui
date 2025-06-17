@@ -91,13 +91,13 @@ WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_i
                         Some(format!(r#"<tr><td><input class="domain-select" type="checkbox" name="domains[{id}]"/></td><td>{name}</td></tr>"#))
                     }).reduce(|a,b|format!("{a}{b}")).unwrap_or_default();
                     let delete = if permissions.admin() || permissions.delete_disabled() {
-                        format!(r#"<button type="submit" formaction="/api/admin/domain/{domain}/subdomains/delete">Permanently Delete Selected Domains</button>"#)
+                        format!(r#"<button type="submit" formaction="/api/admin/{domain}/subdomains/delete">Permanently Delete Selected Domains</button>"#)
                     } else { String::new() };
                     let undelete = if permissions.admin() || permissions.undelete() {
-                        format!(r#"<button type="submit" formaction="/api/admin/domain/{domain}/subdomains/recover">Recover Selected Domains</button>"#)
+                        format!(r#"<button type="submit" formaction="/api/admin/{domain}/subdomains/recover">Recover Selected Domains</button>"#)
                     } else { String::new() };
                     format!(r#"<h2>Disabled Subdomains</h2>
-<form method="POST" action="/api/admin/domain/{domain}/subdomains">{undelete}{delete}<table>
+<form method="POST" action="/api/admin/{domain}/subdomains">{undelete}{delete}<table>
     <tr><th>Selected</th><th>Sub-Domain</th></tr>
     {deleted_domains}
 </table></form>
@@ -118,7 +118,7 @@ WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_i
     let new_subdomain = if permissions.admin() || permissions.create_subdomain() {
         let domain = if domain == SPECIAL_ROOT_DOMAIN_NAME { String::new() } else { format!(".{domain}") };
         format!(r#"<h2>Create new Subdomain:</h2>
-<form method="POST" action="/api/admin/domain/{domain}/subdomains">
+<form method="POST" action="/api/admin/{domain}/subdomains">
     <input type="hidden" name="_method" value="PUT" />
     <label>Name: <a><input type="text" pattern="[a-zA-Z0-9]+" name="name" />{domain}</a></label>
     <input type="submit" value="Add Subdomain" />
@@ -137,7 +137,7 @@ WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_i
 {new_subdomain}
 <table><tr><td>
 <h2>Existing Subdomains:</h2>
-<form method="POST" action="/api/admin/domain/{domain}/subdomains">
+<form method="POST" action="/api/admin/{domain}/subdomains">
 <input type="hidden" name="_method" value="DELETE" />
 <input type="submit" value="Disable Selected Subdomains" />
     <table>
