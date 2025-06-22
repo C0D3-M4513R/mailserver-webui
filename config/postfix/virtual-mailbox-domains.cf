@@ -1,0 +1,7 @@
+hosts = /run/postgresql
+
+user=user
+password=password
+dbname = mailserver
+
+query = SELECT 1 FROM postfix_domains WHERE name='%s'

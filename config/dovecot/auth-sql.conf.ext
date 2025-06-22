@@ -1,0 +1,25 @@
+#sql_driver = pgsql
+
+#pgsql localhost {
+#  parameters {
+#    user = mailuser
+#    # You can also set up non-password authentication by modifying PostgreSQL's
+#    # pg_hba.conf
+#    password = VK1615LsTxTY8MB403O8zwzx9yJsXSoKjI07Xhs9B9lFAQbENmam5AVSc2Hvh0mOzgB3xYg59k7pkqTFJo31YqA2UyoknCtE3Ln
+#    dbname = mailserver
+#  }
+#}
+
+service auth {
+  vsz_limit = 2G
+}
+
+
+passdb sql {
+  driver = sql
+  args = /tmp/docker-mailserver/dovecot/dovecot-sql.conf
+}
+userdb sql {
+  driver = sql
+  args = /tmp/docker-mailserver/dovecot/dovecot-sql.conf
+}

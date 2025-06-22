@@ -1,0 +1,12 @@
+#This is for implementing DANE + MTA-STS and uses an external postfix-tlspol
+#smtp_tls_security_level = dane
+#smtp_dns_support_level = dnssec
+#smtp_tls_policy_maps = socketmap:inet:172.19.0.1:8642:query
+
+
+# Virtual domains, users, and aliases
+virtual_mailbox_domains = pgsql:/tmp/docker-mailserver/postfix/virtual-mailbox-domains.cf
+virtual_mailbox_maps = pgsql:/tmp/docker-mailserver/postfix/virtual-mailbox-maps.cf
+virtual_alias_maps = pgsql:/tmp/docker-mailserver/postfix/virtual-alias-maps.cf,
+        pgsql:/tmp/docker-mailserver/postfix/virtual-email2email.cf
+smtpd_sender_login_maps = $virtual_alias_maps
