@@ -18,7 +18,7 @@ askama = "0.14.0" #template engine
 #logging
 log = "0.4.26"
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 
 flate2 = "1.1.0" #compression
 base64 = "0.22.1"
