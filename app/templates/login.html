@@ -1,11 +1,11 @@
+{% extends "base.html" %}
 {% import "parts/email_settings.html" as email_settings %}
 {% import "parts/header.html" as header %}
-{% extends "base.html" %}
 
 
 {% block content %}
 <h1>Mailserver Admin</h1>
-{% call header::header() %}
+{% call header::header() %}{% endcall %}
 {% if let Some(error) = error %}
 <div class="error">{{ error }}</div>
 {% endif %}
@@ -15,5 +15,5 @@
     <label>Submit: <input type="submit"/></label>
 </form>
 
-{% call email_settings::email_settings() %}
+{% call email_settings::email_settings() %}{% endcall %}
 {% endblock %}

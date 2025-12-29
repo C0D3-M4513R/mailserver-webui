@@ -1,6 +1,6 @@
+{% extends "base.html" %}
 {% import "parts/email_settings.html" as email_settings %}
 {% import "parts/authenticated/header.html" as header %}
-{% extends "base.html" %}
 
 
 {% block title %}
@@ -9,7 +9,7 @@ Password-Change
 
 {% block content %}
 <h1>Password-Change</h1>
-{% call header::header() %}
+{% call header::header() %}{% endcall %}
 {% if let Some(error) = error %}
 <div class="error">{{ error }}</div>
 {% endif %}

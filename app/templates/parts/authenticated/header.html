@@ -4,6 +4,6 @@
 {% macro header() %}
 <a href="/admin">Main-Panel</a>
 <a href="/admin/change_pw">Change Password</a>
-{% call logout::logout() %}
-{% call header::header() %}
+{% call logout::logout() %}{% endcall %}
+{% call header::header() %}{% endcall %}
 {% endmacro %}
