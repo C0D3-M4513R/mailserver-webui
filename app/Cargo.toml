@@ -13,7 +13,7 @@ const_format = "0.2.34"#compile-time string formatting
 anyhow = "1.0.97"#error handling
 thiserror = "2.0.12"
 mailserver-web-macro = { path = "../macro" }
-askama = "0.15.0" #template engine
+askama = "0.16.0" #template engine
 
 #logging
 log = "0.4.26"
@@ -26,21 +26,22 @@ serde = { version = "1.0.130", features = ["derive"] } #serialization
 serde_json = "1.0.68" #json serialization
 
 #crypto stuff
-password-hash = "0.5.0"
-argon2 = "0.5.3"
-sha-crypt = { version = "0.5.0", optional = true }
-scrypt = "0.11.0"
-pbkdf2 = "0.12.2"
-bcrypt-pbkdf = "0.10.0"
-rand = "0.9.0"
+password-hash = { version = "0.6.0", features = ["phc", "rand_core", "getrandom"] }
+argon2 = "0.6.0-rc.8"
+sha-crypt = { version = "0.6.0", optional = true }
+scrypt = "0.12.0"
+pbkdf2 = "0.13.0"
+bcrypt-pbkdf = "0.11.0"
+rand = "0.10.0"
 rsa = "0.9.8"
 pkcs1 = "0.7.5"
-pkcs8 = "0.10.2"
+pkcs8 = "0.11.0"
+const-oid = { version = "0.10.2", features = ["db"] }
 
 #generic tech-stack
 rocket = { version = "0.5.1", features = ["secrets", "json"] }
 tokio = "1.43.1"
-sqlx = { version = "0.8.3", features = ["postgres", "runtime-tokio-rustls"]}
+sqlx = { version = "0.9.0", features = ["postgres", "runtime-tokio"]}
 
 [features]
 sha-crypt = ["dep:sha-crypt"]

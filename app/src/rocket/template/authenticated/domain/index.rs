@@ -45,13 +45,18 @@ pub enum DkimKey {
 }
 impl DkimKey {
     pub fn from_data(private_key_data: &[u8]) -> Result<Self, String> {
-        use pkcs8::der::Decode;
-        let der = pkcs8::PrivateKeyInfo::from_der(private_key_data).map_err(|e|e.to_string())?;
+        let der = {
+            use pkcs8::der::Decode;
+            pkcs8::PrivateKeyInfoRef::from_der(private_key_data).map_err(|e|e.to_string())?
+        };
         match der.algorithm.oid {
-            pkcs1::ALGORITHM_OID => Ok(Self::RSA(
-                pkcs1::RsaPrivateKey::from_der(der.private_key).map_err(|v|v.to_string())?
-                    .public_key().to_der().map_err(|v|v.to_string())?
-            )),
+            const_oid::db::rfc5912::RSA_ENCRYPTION => {
+                use pkcs1::der::Decode;
+                Ok(Self::RSA(
+                    pkcs1::RsaPrivateKey::from_der(der.private_key.as_bytes()).map_err(|v|v.to_string())?
+                        .public_key().to_der().map_err(|v|v.to_string())?
+                ))
+            },
             id => Err(format!("Unrecognised key type: {id}")),
         }
     }

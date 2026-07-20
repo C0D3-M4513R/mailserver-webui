@@ -8,6 +8,24 @@ macro_rules! get_perm {
         concat!(r#"CASE WHEN input.self_id = ANY(domains.domain_owner) OR (slf.manage_permissions AND (slf.admin OR slf."#, stringify!($para), "))               THEN input.", stringify!($para) , "               ELSE target.", stringify!($para) ,  "                 END AS " , stringify!($para))
     };
 }
+macro_rules! print_perm {
+    (admin) =>                  {"Admin: "};
+    (view_domain) =>            {"View Domain: "};
+    (modify_domain) =>          {"Modify Domain: "};
+    (list_subdomain) =>         {"List Subdomain: "};
+    (create_subdomain) =>       {"Create Subdomain: "};
+    (delete_subdomain) =>       {"Delete Subdomain: "};
+    (list_accounts) =>          {"List Accounts: "};
+    (create_accounts) =>        {"Create Accounts: "};
+    (modify_accounts) =>        {"Modify Accounts: "};
+    (delete_accounts) =>        {"Delete Accounts: "};
+    (list_alias) =>             {"List Alias: "};
+    (create_alias) =>           {"Create Alias: "};
+    (delete_alias) =>           {"Delete Alias: "};
+    (list_permissions) =>       {"List Permissions: "};
+    (manage_permissions) =>     {"Manage Permissions: "};
+    ($para:ident) =>            { stringify!($ident)};
+}
 macro_rules! get_bind {
     (@_impl, $lit:expr, $para:expr, $($param1:expr),+) => {{
         const_format::concatcp!(get_bind!(@_impl, $lit, $para),",",get_bind!(@_impl, $lit + 1, $($param1),+))

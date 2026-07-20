@@ -3,7 +3,7 @@ pub enum Error {
     #[error("Error Getting Password from DB: {0}")]
     GetPassword(sqlx::Error),
     #[error("Error Parsing Password Hash or Parameters: {0}")]
-    ParsePassword(password_hash::Error),
+    ParsePassword(password_hash::phc::Error),
     #[error("Error Verifying Password: {0}")]
     VerifyPassword(password_hash::Error),
     #[error("Error Verifying Password. Panicked: {0}")]
@@ -23,7 +23,7 @@ const ARGON2_PARAMS: argon2::Params = match argon2::Params::new(
     256*1024,
     2,
     8,
-    Some(password_hash::Output::MAX_LENGTH)
+    Some(password_hash::phc::Output::MAX_LENGTH)
 ){
     Ok(v) => v,
     Err(_) => panic!("Error creating argon2 params")
@@ -41,23 +41,7 @@ WHERE id = $1
         .fetch_one(&db)
         .await.map_err(|err|Error::GetPassword(err))?.password;
     log::debug!("got Password-Hash: {password_hash:?}");
-
-    let encoding = {
-        #[cfg(feature = "sha-crypt")]
-        {
-            if password_hash.starts_with(format!("${}",super::sha::SHA256_CRYPT.as_str()).as_str()) ||
-                password_hash.starts_with(format!("${}",super::sha::SHA512_CRYPT.as_str()).as_str())
-            {
-                password_hash::Encoding::ShaCrypt
-            } else {
-                password_hash::Encoding::B64
-            }
-        }
-        #[cfg(not(feature = "sha-crypt"))]
-        password_hash::Encoding::B64
-    };
-
-    if verify_password(password_hash, encoding, password.clone()).await? {
+    if verify_password(password_hash, password.clone()).await? {
         set_password(db, Ok(user_id), slf_user_id, password).await?;
     } else if let Some(new_password) = new_password {
         set_password(db, Ok(user_id), slf_user_id, new_password).await?;
@@ -70,11 +54,11 @@ WHERE id = $1
 
 pub async fn get_password_hash(password: String) -> Result<String, Error> {
     tokio::task::spawn_blocking(move||{
-        let salt = argon2::password_hash::SaltString::generate(&mut password_hash::rand_core::OsRng);
-        use argon2::password_hash::PasswordHasher;
+        let salt = password_hash::phc::Salt::generate();
+        use password_hash::PasswordHasher;
 
         let argon = argon2::Argon2::new(ARGON2_ALGO, ARGON2_VERSION, ARGON2_PARAMS);
-        Ok(argon.hash_password(password.as_bytes(), salt.as_salt()).map_err(|err|Error::HashNewPassword(err))?.to_string())
+        Ok(argon.hash_password_with_salt(password.as_bytes(), salt.as_ref()).map_err(|err|Error::HashNewPassword(err))?.to_string())
     }).await.unwrap_or_else(|e|Err(Error::HashNewPasswordPanic(e)))
 }
 
@@ -99,10 +83,10 @@ pub async fn set_password(db: sqlx::PgPool, user: Result<i64, (&str, i64)>, slf_
 /**
 * Return bool is set, if the password should be re-hashed.
 */
-async fn verify_password(password_hash: String, encoding: password_hash::Encoding, password: String) -> Result<bool, Error> {
+async fn verify_password(password_hash: String, password: String) -> Result<bool, Error> {
     tokio::task::spawn_blocking(move ||{
     let password_hash = password_hash;
-    let password_hash = password_hash::PasswordHash::parse(password_hash.as_str(), encoding)
+    let password_hash = password_hash::phc::PasswordHash::new(password_hash.as_str())
         .map_err(|err|Error::ParsePassword(err))?;
     let password_hash = &password_hash;
     log::debug!("decoded Password-Hash: {password_hash:?}");
@@ -128,7 +112,7 @@ async fn verify_password(password_hash: String, encoding: password_hash::Encodin
         Ok(Algorithms::Bcrypt(_)) => {
             let params = super::bcrypt::BcryptParams::try_from(password_hash).map_err(|e|Error::VerifyPassword(e))?;
             log::debug!("bcrypt params: {params:?}");
-            super::bcrypt::Bcrypt::new(params).verify_password(password.as_bytes(), password_hash).map_err(|e|Error::VerifyPassword(e))?;
+            super::bcrypt::BCryptVerifier{}.verify_password(password.as_bytes(), password_hash).map_err(|e|Error::VerifyPassword(e))?;
             Ok(true)
         }
         #[cfg(feature = "sha-crypt")]
@@ -158,10 +142,10 @@ $vis enum $ident{
 $crate::rocket::auth::check_password::ident!(impl, $ident, $(Self::$name, $value),*);
     };
     (impl, $ident: ident, $($name:expr, $value:path),*) => {
-impl<'a> TryFrom<password_hash::Ident<'a>> for $ident {
+impl TryFrom<password_hash::phc::Ident> for $ident {
     type Error = password_hash::Error;
 
-    fn try_from(value: password_hash::Ident<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: password_hash::phc::Ident) -> Result<Self, Self::Error> {
         match value {
             $($value => Ok($name ),)*
             _ => Err(password_hash::Error::Algorithm),
@@ -175,8 +159,7 @@ ident!(impl, Algorithms,
     Self::Argon(argon2::Algorithm::Argon2i), argon2::ARGON2I_IDENT,
     Self::Argon(argon2::Algorithm::Argon2d), argon2::ARGON2D_IDENT,
     Self::Argon(argon2::Algorithm::Argon2id), argon2::ARGON2ID_IDENT,
-    Self::Bcrypt(super::bcrypt::BcryptAlgorithm::A), super::bcrypt::BCRYPT_A,
-    Self::Bcrypt(super::bcrypt::BcryptAlgorithm::Y), super::bcrypt::BCRYPT_Y
+    Self::Bcrypt(super::bcrypt::BcryptAlgorithm::A), super::bcrypt::BCRYPT_A
     // Self::Sha512, super::sha::SHA512_CRYPT
     // Self::Sha256, super::sha::SHA256_CRYPT
 );
