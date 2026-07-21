@@ -5,6 +5,7 @@ mod api;
 mod content;
 mod template;
 
+pub use auth::session::session_middleware;
 pub use api::{
     index_post,
     auth_check_login,

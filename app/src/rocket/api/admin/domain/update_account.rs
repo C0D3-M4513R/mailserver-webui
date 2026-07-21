@@ -1,6 +1,6 @@
 use crate::rocket::response::Return;
 use crate::rocket::auth::check_password::set_password;
-use crate::rocket::content::admin::domain::UNAUTH;
+use crate::rocket::content::admin::domain::unauth;
 use crate::rocket::content::admin::domain::account::admin_domain_account_get_impl;
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, DATABASE_ERROR, DATABASE_PERMISSION_ERROR, MANAGE_PERMISSION_NO_PERM, MODIFY_ACCOUNT_NO_PERM};
 use crate::rocket::auth::session::Session;
@@ -8,92 +8,92 @@ use crate::rocket::auth::permissions::{UpdatePermissions};
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 
 pub(super) mod private{
-    #[derive(rocket::form::FromForm)]
-    pub struct UpdateAccountEmail<'a>{
-        pub email: &'a str,
+    #[derive(serde::Deserialize, serde::Serialize)]
+    pub struct UpdateAccountEmail{
+        pub email: String,
     }
-    #[derive(rocket::form::FromForm)]
+    #[derive(serde::Deserialize, serde::Serialize)]
     pub struct UpdateAccountPassword{
         pub password: String,
     }
-    #[derive(rocket::form::FromForm)]
+    #[derive(serde::Deserialize, serde::Serialize)]
     pub struct UpdateUserPermissions{
         pub self_change_password: bool,
     }
 }
 
-#[rocket::put("/admin/<domain>/accounts/<user_name>/email", data = "<data>")]
+#[actix_web::post("/admin/<domain>/accounts/<user_name>/email")]
 pub async fn admin_domain_account_email_put(
-    session: Option<Session>,
-    domain: &'_ str,
-    user_name: &'_ str,
-    data: rocket::form::Form<private::UpdateAccountEmail<'_>>
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    user_name: String,
+    data: actix_web::web::Form<private::UpdateAccountEmail>
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
     if !data.email.is_ascii() {
-        return (rocket::http::Status::BadRequest, DomainBase{
-            domain,
+        return (actix_web::http::StatusCode::BAD_REQUEST, DomainBase{
+            domain: domain.into(),
             content: ACCOUNT_INVALID_CHARS,
         }).into();
     }
-    let pool = crate::get_db().await;
 
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm =  |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: MODIFY_ACCOUNT_NO_PERM,
     });
-    let permission = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permission = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_accounts() {
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
+    let pool = crate::get_db().await;
     match sqlx::query!("SELECT set_user_email(users.id, $1, $2) as id from users WHERE email = $3 AND domain_id = $4",
         data.email, session.get_user_id(), user_name, permission.domain_id())
         .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
-        Ok(None) => return (rocket::http::Status::Forbidden, DomainBase{
-            domain,
+        Ok(None) => return (actix_web::http::StatusCode::FORBIDDEN, DomainBase{
+            domain: domain.into(),
             content: DATABASE_PERMISSION_ERROR,
         }).into(),
         Err(err) => {
             log::error!("Error updating account: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
-            err.override_status(rocket::http::Status::InternalServerError);
-            return err;
+            return admin_domain_account_get_impl(&*session_ref, domain, user_name, Some(DATABASE_ERROR))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{}", data.email)))
+    Return::redirect_to(format!("/admin/{domain}/accounts/{}", data.email))
 }
-#[rocket::put("/admin/<domain>/accounts/<user_name>/user_permission", data = "<data>")]
+#[actix_web::post("/admin/<domain>/accounts/<user_name>/user_permission")]
 pub async fn admin_domain_account_user_permission_put(
-    session: Option<Session>,
-    domain: &'_ str,
-    user_name: &'_ str,
-    data: rocket::form::Form<private::UpdateUserPermissions>,
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    user_name: String,
+    data: actix_web::web::Form<private::UpdateUserPermissions>,
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: MODIFY_ACCOUNT_NO_PERM,
     });
-    let permission = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permission = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_accounts() {
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
     let pool = crate::get_db().await;
@@ -112,76 +112,75 @@ pub async fn admin_domain_account_user_permission_put(
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error creating account: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
-            err.override_status(rocket::http::Status::InternalServerError);
-            return err;
+            return admin_domain_account_get_impl(&*session_ref, domain, user_name, Some(DATABASE_ERROR))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
+    Return::redirect_to(format!("/admin/{domain}/accounts/{user_name}"))
 }
-#[rocket::put("/admin/<domain>/accounts/<user_name>/password", data = "<data>")]
+#[actix_web::post("/admin/<domain>/accounts/<user_name>/password")]
 pub async fn admin_domain_account_password_put(
-    session: Option<Session>,
-    domain: &'_ str,
-    user_name: &'_ str,
-    data: rocket::form::Form<private::UpdateAccountPassword>,
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    user_name: String,
+    data: actix_web::web::Form<private::UpdateAccountPassword>,
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: MODIFY_ACCOUNT_NO_PERM,
     });
-    let permission = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permission = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.modify_accounts() {
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
     let pool = crate::get_db().await;
-    match set_password(pool, Err((user_name, permission.domain_id())), session.get_user_id(), data.into_inner().password).await {
+    match set_password(pool, Err((&user_name, permission.domain_id())), session.get_user_id(), data.into_inner().password).await {
         Err(err) => {
             log::error!("Error setting password: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some("There was an error setting the account Password.")).await;
-            err.override_status(rocket::http::Status::InternalServerError);
-            return err;
+            return admin_domain_account_get_impl(&*session_ref, domain, user_name, Some("There was an error setting the account Password."))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         }
         Ok(()) => {},
     }
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
+    Return::redirect_to(format!("/admin/{domain}/accounts/{user_name}"))
 }
 
 
-#[rocket::put("/admin/<domain>/accounts/<user_name>/permissions", data = "<data>")]
+#[actix_web::post("/admin/<domain>/accounts/<user_name>/permissions")]
 pub async fn admin_domain_account_permissions_put(
-    session: Option<Session>,
-    domain: &'_ str,
-    user_name: &'_ str,
-    data: rocket::form::Form<UpdatePermissions>,
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    user_name: String,
+    data: actix_web::web::Form<UpdatePermissions>,
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
-
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: MANAGE_PERMISSION_NO_PERM,
     });
-    let permission = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permission = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.manage_permissions() {
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
     let pool = crate::get_db().await;
@@ -189,11 +188,11 @@ pub async fn admin_domain_account_permissions_put(
         Ok(_) => {  },
         Err(err) => {
             log::error!("Error applying account permissions: {err}");
-            let mut err = admin_domain_account_get_impl(Some(session), domain, user_name, Some(DATABASE_ERROR)).await;
-            err.override_status(rocket::http::Status::InternalServerError);
-            return err;
+            return admin_domain_account_get_impl(&*session_ref, domain, user_name, Some(DATABASE_ERROR))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts/{user_name}")))
+    Return::redirect_to(format!("/admin/{domain}/accounts/{user_name}"))
 }

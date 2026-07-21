@@ -1,3 +1,7 @@
+use std::sync::Arc;
+use anyhow::Context;
+use base64::Engine;
+
 mod rocket;
 
 //noinspection RsReplaceMatchExpr - unwrap_or is not a const_fn.
@@ -79,9 +83,10 @@ fn main() -> anyhow::Result<()> {
         log::info!("Initialized logging");
     }
 
-    ::rocket::execute(launch())
+    launch()
 }
 
+#[actix_web::main]
 async fn launch() -> anyhow::Result<()> {
     let _ = get_db().await;
  //    const Q_NULL: [bool;2] = [false, false];
@@ -106,15 +111,28 @@ async fn launch() -> anyhow::Result<()> {
  //        .fetch_one(get_mysql().await).await.expect("test");
  //    let test:Vec<Option<bool>> = v.test;
 
-    ::rocket::build()
-        .attach(CORS)
-        .mount("/api", ::rocket::routes![
+
+    let secret = {
+        let secret_string = std::env::var("ROCKET_SECRET").with_context(|| "Failed to find ROCKET_SECRET")?;
+        let secret = base64::engine::general_purpose::STANDARD.decode(secret_string.as_bytes())?;
+        drop(secret_string);
+        let secret = actix_web::cookie::Key::try_from(secret.as_slice()).with_context(|| "ROCKET_SECRET doesn't have exactly 64 bytes of random key info?")?;
+        Arc::new(secret)
+    };
+
+    let server = actix_web::HttpServer::new(move || {
+        macro_rules! register {
+            ($app:expr, $($service:expr),*$(,)?) => {
+                $app$(.service($service))*
+            }
+        }
+        let api_scope = register!(actix_web::Scope::new("/api/"),
             //Auth
             rocket::index_post,
-            rocket::auth_check_login,
             rocket::logout_post,
 
             //Domain Settings
+            rocket::auth_check_login,
             rocket::admin_domain_name_put,
             rocket::admin_domain__accepts_email__put,
             rocket::admin_domain_owner_put,
@@ -142,8 +160,13 @@ async fn launch() -> anyhow::Result<()> {
             rocket::admin_domain_permissions_put,
             //Account Settings
             rocket::admin_put_change_pw,
-        ])
-        .mount("/", ::rocket::routes![
+        );
+        let app = actix_web::App::new()
+            .app_data(actix_web::web::Data::from(secret.clone()))
+            .wrap(actix_web::middleware::from_fn(rocket::session_middleware))
+        ;
+        let app = register!(app,
+            api_scope,
             rocket::index_get,                      //login
             rocket::get_styles_css,                 //styles
             rocket::admin_get,                      //admin  dashboard
@@ -154,64 +177,52 @@ async fn launch() -> anyhow::Result<()> {
             rocket::admin_domain_permissions_get,   //Permissions
             rocket::admin_domain_aliases_get,       //Aliases
             rocket::admin_get_change_pw,            //Account PW-Change
-        ])
-        .launch()
-        .await?;
+        );
+
+        app
+    });
+
+    #[cfg(all(unix, feature = "socket"))]
+    let server = {
+        #[cfg(feature = "systemd-socket")]
+        let server = {
+            let mut server = server;
+            match systemd::daemon::listen_fds(false) {
+                Err(err) => {
+                    tracing::error!("Failed to get info for already bound systemd socket. Falling back to manually allocated socket: {err}");
+                    server = server.bind_uds("server.sock")?
+                },
+                Ok(v) => {
+                    use anyhow::Context;
+                    let mut has_socket = false;
+                    for (i, fd) in v.iter().enumerate() {
+                        //TODO: check if the fd points to a stream socket and if it's listening?
+                        //  All previous attempts to check this through `systemd::daemon::is_socket_inet` failed though.
+                        has_socket = true;
+                        let listener = unsafe {
+                            use std::os::fd::FromRawFd;
+                            std::os::unix::net::UnixListener::from_raw_fd(fd)
+                        };
+                        server = server.listen_uds(listener).with_context(||format!("Failed to listen to fd number {i}"))?;
+                    }
+                    if !has_socket {
+                        tracing::error!("No already bound systemd socket were passed. Falling back to manually allocated socket");
+                        server = server.bind_uds("server.sock")?;
+                    }
+                }
+            }
+            server
+        };
+        #[cfg(not(feature= "systemd-socket"))]
+        let server = server.bind_uds("server.sock")?;
+        server
+    };
+
+    #[cfg(any(not(unix), not(feature = "socket")))]
+    let server = server.bind((core::net::IpAddr::V4(core::net::Ipv4Addr::LOCALHOST), 8080))?;
+    let server = server.bind((core::net::IpAddr::V4(core::net::Ipv4Addr::LOCALHOST), 8080))?;
+
+    server.run().await?;
 
     Ok(())
-}
-
-
-
-pub struct CORS;
-
-#[::rocket::async_trait]
-impl ::rocket::fairing::Fairing for CORS {
-    fn info(&self) -> ::rocket::fairing::Info {
-        ::rocket::fairing::Info {
-            name: "Add CORS headers to responses",
-            kind: ::rocket::fairing::Kind::Response
-        }
-    }
-
-    async fn on_response<'r>(&self, _request: &'r ::rocket::request::Request<'_>, response: &mut ::rocket::Response<'r>) {
-        // response.set_header(::rocket::http::Header::new("Vary", "Sec-Fetch-Mode, Sec-Fetch-Site, Origin"));
-        match _request.headers().get("Sec-Fetch-Mode").next() {
-            Some("cors") => {},
-            _ => return,
-        }
-        match _request.headers().get("Sec-Fetch-Site").next() {
-            Some("cross-site") => {},
-            _ => return,
-        }
-        match _request.headers().get("Origin").next() {
-            Some("http://localhost:4200") => {},
-            _ => return,
-        }
-        let methods = _request
-            .rocket()
-            .routes()
-            .filter(|r|&r.uri.origin == _request.uri())
-            .map(|r|r.method)
-            .collect::<::std::collections::HashSet<_>>()
-            .into_iter()
-            .map(|v|v.as_str().to_string())
-            .reduce(|mut a,b|{
-                a.push(',');
-                a.push(' ');
-                a.push_str(b.as_str());
-                a
-            });
-        let methods = match methods {
-            None => return,
-            Some(v) => v,
-        };
-        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Methods", methods));
-        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Origin", "http://localhost:4200"));
-        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Headers", "*"));
-        response.set_header(::rocket::http::Header::new("Access-Control-Allow-Credentials", "true"));
-        if _request.method() == ::rocket::http::Method::Options {
-            response.set_status(::rocket::http::Status::Ok);
-        }
-    }
 }

@@ -41,10 +41,11 @@ WHERE id = $1
         .fetch_one(&db)
         .await.map_err(|err|Error::GetPassword(err))?.password;
     log::debug!("got Password-Hash: {password_hash:?}");
-    if verify_password(password_hash, password.clone()).await? {
-        set_password(db, Ok(user_id), slf_user_id, password).await?;
-    } else if let Some(new_password) = new_password {
-        set_password(db, Ok(user_id), slf_user_id, new_password).await?;
+    let (set, password) = verify_password(password_hash, password).await?;
+
+    let set_pw = new_password.or(set.then(||password));
+    if let Some(pw) = set_pw {
+        set_password(db, Ok(user_id), slf_user_id, pw).await?;
     }
 
     // transaction.commit().await.map_err(|err|Error::TransactionCommit(err))?;
@@ -83,7 +84,7 @@ pub async fn set_password(db: sqlx::PgPool, user: Result<i64, (&str, i64)>, slf_
 /**
 * Return bool is set, if the password should be re-hashed.
 */
-async fn verify_password(password_hash: String, password: String) -> Result<bool, Error> {
+async fn verify_password(password_hash: String, password: String) -> Result<(bool, String), Error> {
     tokio::task::spawn_blocking(move ||{
     let password_hash = password_hash;
     let password_hash = password_hash::phc::PasswordHash::new(password_hash.as_str())
@@ -107,27 +108,27 @@ async fn verify_password(password_hash: String, password: String) -> Result<bool
 
             let needs_rehash = algorithm != ARGON2_ALGO || version != ARGON2_VERSION || params != ARGON2_PARAMS;
             argon2::Argon2::new(algorithm, version, params).verify_password(password.as_bytes(), password_hash).map_err(|e|Error::VerifyPassword(e))?;
-            Ok(needs_rehash)
+            Ok((needs_rehash, password))
         }
         Ok(Algorithms::Bcrypt(_)) => {
             let params = super::bcrypt::BcryptParams::try_from(password_hash).map_err(|e|Error::VerifyPassword(e))?;
             log::debug!("bcrypt params: {params:?}");
             super::bcrypt::BCryptVerifier{}.verify_password(password.as_bytes(), password_hash).map_err(|e|Error::VerifyPassword(e))?;
-            Ok(true)
+            Ok((true, password))
         }
         #[cfg(feature = "sha-crypt")]
         Ok(Algorithms::Sha256) => {
             let params = super::sha::Sha256Params::try_from(password_hash).map_err(|e|Error::VerifyPassword(e))?;
             log::debug!("sha256 params: {params:?}");
             super::sha::Sha256::new(params).verify_password(password.as_bytes(), password_hash).map_err(|e|Error::VerifyPassword(e))?;
-            Ok(true)
+            Ok((true, password))
         }
         #[cfg(feature = "sha-crypt")]
         Ok(Algorithms::Sha512) => {
             let params = super::sha::Sha512Params::try_from(password_hash).map_err(|e|Error::VerifyPassword(e))?;
             log::debug!("sha512 params: {params:?}");
             super::sha::Sha512::new(params).verify_password(password.as_bytes(), password_hash).map_err(|e|Error::VerifyPassword(e))?;
-            Ok(true)
+            Ok((true, password))
         }
         Err(_) => Err(Error::VerifyPassword(password_hash::Error::Algorithm)),
     }

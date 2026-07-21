@@ -1,26 +1,26 @@
 use crate::rocket::response::Return;
 use crate::rocket::auth::check_password::get_password_hash;
-use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, UNAUTH};
+use crate::rocket::content::admin::domain::{accounts::admin_domain_accounts_get_impl, unauth};
 use crate::rocket::messages::{ACCOUNT_INVALID_CHARS, CREATE_ACCOUNT_NO_PERM, DATABASE_ERROR, DATABASE_PERMISSION_ERROR};
 use crate::rocket::auth::session::Session;
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 
 mod private{
-    #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
-    pub struct CreateAccount<'a>{
-        pub email: &'a str,
+    #[derive(serde::Deserialize, serde::Serialize)]
+    pub struct CreateAccount{
+        pub email: String,
         pub password: String,
     }
 }
 
-#[rocket::put("/admin/<domain>/accounts", data = "<data>")]
+#[actix_web::post("/admin/<domain>/accounts/create")]
 pub async fn create_account(
-    session: Option<Session>,
-    domain: &'_ str,
-    data: rocket::form::Form<private::CreateAccount<'_>>
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    data: actix_web::web::Form<private::CreateAccount>
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
@@ -33,40 +33,40 @@ pub async fn create_account(
         v == '{' || v == '|' || v == '}' || v == '~' ||
         v == char::from(177) //177 = Delete
     ) {
-        return (rocket::http::Status::BadRequest, DomainBase{
-            domain,
+        return (actix_web::http::StatusCode::BAD_REQUEST, DomainBase{
+            domain: domain.into(),
             content: ACCOUNT_INVALID_CHARS,
         }).into();
     }
 
-    let pool = crate::get_db().await;
 
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: CREATE_ACCOUNT_NO_PERM,
     });
-    let permission = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permission = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.create_accounts() {
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
+    let pool = crate::get_db().await;
     let mut transaction = match pool.begin().await {
         Ok(v) => v,
         Err(err) => {
             log::error!("Error beginning transaction: {err}");
-            return admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
+            return admin_domain_accounts_get_impl(&*session_ref, domain, Some(DATABASE_ERROR)).await;
         }
     };
     let data = data.into_inner();
     let hash = match get_password_hash(data.password).await {
         Err(err) =>  {
             log::error!("Error getting password hash: {err}");
-            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some("There was an error setting the account Password.")).await;
-            result.override_status(rocket::http::Status::InternalServerError);
-            return result;
+            return admin_domain_accounts_get_impl(&*session_ref, domain, Some("There was an error setting the account Password."))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         },
         Ok(v) => v,
     };
@@ -75,15 +75,15 @@ pub async fn create_account(
         Ok(Some(v)) => v,
         Ok(None) => {
             log::error!("Error creating account: DB permission check failed");
-            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_PERMISSION_ERROR)).await;
-            result.override_status(rocket::http::Status::Forbidden);
-            return result;
+            return admin_domain_accounts_get_impl(&*session_ref, domain, Some(DATABASE_PERMISSION_ERROR))
+                .await
+                .override_status(actix_web::http::StatusCode::FORBIDDEN);
         },
         Err(err) => {
             log::error!("Error creating account: {err}");
-            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
-            result.override_status(rocket::http::Status::InternalServerError);
-            return result;
+            return admin_domain_accounts_get_impl(&*session_ref, domain, Some(DATABASE_ERROR))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
@@ -91,11 +91,11 @@ pub async fn create_account(
         Ok(()) => {},
         Err(err) => {
             log::error!("Error commiting account: {err}");
-            let mut result = admin_domain_accounts_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
-            result.override_status(rocket::http::Status::InternalServerError);
-            return result;
+            return admin_domain_accounts_get_impl(&*session_ref, domain, Some(DATABASE_ERROR))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         }
     }
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts")))
+    Return::redirect_to(format!("/admin/{domain}/accounts"))
 }

@@ -4,6 +4,7 @@ pub mod subdomains;
 pub mod permissions;
 pub mod aliases;
 
+use std::borrow::Cow;
 pub use account::admin_domain_account_get;
 pub use accounts::admin_domain_accounts_get;
 pub use subdomains::admin_domain_subdomains_get;
@@ -89,23 +90,23 @@ fn domain_linklist(session: &Session, domain: &str) -> String {
         "#
     )
 }
-#[rocket::get("/admin/<domain>")]
-pub async fn admin_domain_get(session: Option<Session>, domain: &str) -> Return {
-    let session = match session {
-        None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
+#[actix_web::get("/admin/<domain>")]
+pub async fn admin_domain_get(session_ref: actix_web::web::ReqData<Option<Session>>, domain: String) -> Return {
+    let session = match &*session_ref {
+        None => return Return::redirect_to_value(actix_web::http::header::HeaderValue::from_static("/")),
         Some(v) => v,
     };
-    let permissions = match session.get_permissions().get(domain) {
-        None => return (rocket::http::Status::Forbidden, DomainBase{
-            domain,
+    let permissions = match session.get_permissions().get(&domain) {
+        None => return (actix_web::http::StatusCode::FORBIDDEN, DomainBase{
+            domain: domain.into(),
             content: VIEW_ADMIN_PANEL_DOMAIN_NO_PERM,
         }).into(),
         Some(v) => v,
     };
 
     if !permissions.admin() && !permissions.view_domain() {
-        return (rocket::http::Status::Forbidden, DomainBase{
-            domain,
+        return (actix_web::http::StatusCode::FORBIDDEN, DomainBase{
+            domain: domain.into(),
             content: VIEW_DOMAIN_NO_PERM,
         }).into();
     }
@@ -125,8 +126,8 @@ WHERE domains.id = $1
         {
             Err(err) => {
                 log::debug!("Error fetching domain: {err}");
-                return (rocket::http::Status::InternalServerError, DomainBase {
-                    domain,
+                return (actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase {
+                    domain: domain.into(),
                     content: DATABASE_ERROR,
                 }).into();
             },
@@ -161,8 +162,8 @@ FROM owner_domains
         {
             Err(err) => {
                 log::debug!("Error fetching accounts: {err}");
-                return (rocket::http::Status::Forbidden, DomainBase{
-                    domain,
+                return (actix_web::http::StatusCode::FORBIDDEN, DomainBase{
+                    domain: domain.into(),
                     content: VIEW_DOMAIN_NO_PERM,
                 }).into();
             },
@@ -185,8 +186,8 @@ FROM owner_domains
             Ok(v) => v,
             Err(err) => {
                 log::debug!("Error fetching domain dkim data: {err}");
-                return (rocket::http::Status::InternalServerError, DomainBase {
-                    domain,
+                return (actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase {
+                    domain: domain.into(),
                     content: DATABASE_ERROR,
                 }).into();
             },
@@ -201,15 +202,17 @@ FROM owner_domains
             }
         }).collect())
     } else {None};
-    (rocket::http::Status::Ok, DomainIndex{
-        domain,
+    (actix_web::http::StatusCode::OK, DomainIndex{
+        domain: domain.into(),
         permissions,
         rename,
         accounts: owner,
         dkim
     }).into()
 }
-pub(crate) const UNAUTH:fn(&str) -> (rocket::http::Status, DomainBase<'_, &'static str>) = |domain| (rocket::http::Status::Forbidden, DomainBase{
-    domain,
-    content: VIEW_DOMAIN_NO_PERM,
-});
+pub(crate) fn unauth(target: impl Into<Cow<'static, str>>) -> (actix_web::http::StatusCode, DomainBase<'static, &'static str>)  {
+    (actix_web::http::StatusCode::FORBIDDEN, DomainBase{
+        domain: target.into(),
+        content: VIEW_DOMAIN_NO_PERM,
+    })
+}

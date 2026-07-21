@@ -1,26 +1,26 @@
 use std::borrow::Cow;
-use crate::rocket::content::admin::domain::{domain_linklist, template, UNAUTH};
+use crate::rocket::content::admin::domain::{domain_linklist, template, unauth};
 use crate::rocket::messages::{DATABASE_ERROR, LIST_ACCOUNT_NO_PERM};
-use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 
-#[rocket::get("/admin/<domain>/aliases")]
-pub async fn admin_domain_aliases_get(session: Option<Session>, domain: &str) -> Return {
-    admin_domain_aliases_get_impl(session, domain, None).await
+#[actix_web::get("/admin/<domain>/aliases")]
+pub async fn admin_domain_aliases_get(session_ref: actix_web::web::ReqData<Option<Session>>, domain: String) -> Return {
+    admin_domain_aliases_get_impl(&*session_ref, domain, None).await
 }
 
-pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: Option<Session>, domain: &str, error: Option<&str>) -> Return {
+pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: &Option<Session>, domain: String, error: Option<&str>) -> Return {
     let session = match session {
-        None => return UNAUTH(domain).into(),
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: LIST_ACCOUNT_NO_PERM,
     });
-    let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permissions = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
 
@@ -29,7 +29,7 @@ pub(in crate::rocket) async fn admin_domain_aliases_get_impl(session: Option<Ses
         !permissions.view_domain() ||
             !permissions.list_alias()
         {
-            return no_perm.into();
+            return no_perm(domain.into()).into();
         }
     }
 
@@ -56,8 +56,8 @@ WHERE alias.domain_id = $1"#, permissions.domain_id())
         Err(err) => {
 
             log::error!("Error fetching accounts: {err}");
-            return (rocket::http::Status::InternalServerError, DomainBase{
-                domain,
+            return (actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase{
+                domain: domain.into(),
                 content: DATABASE_ERROR,
             }).into();
         }
@@ -90,8 +90,7 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
         let has_err = if has_err { "disabled" } else {""};
 
         format!(r#"<h2>Create new Alias:</h2>
-<form method="POST" action="/api/admin/{domain}/aliases">
-    <input type="hidden" name="_method" value="PUT" />
+<form method="POST" action="/api/admin/{domain}/aliases/create">
     <label>Source: <a></a><input type="text" name="source" pattern="[a-zA-Z0-9\(\)\*\,\-\.\[\]\_]+" {has_err}/>@{domain}</a></label><br>
     <label>Target: <a><select name="user" {has_err}>{destination}</select></label><br>
     <input type="submit" value="Add Alias" {has_err} />
@@ -101,16 +100,14 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
     };
 
     let delete = if permissions.admin() || permissions.delete_accounts(){
-        r#"<input type="hidden" name="_method" value="DELETE" /><input type="submit" value="Delete Selected Aliases" />"#
+        format!(r#"<button type="submit" formaction="/api/admin/{domain}/aliases/delete">Delete Selected Aliases</button>"#)
     } else {
-        ""
+        String::new()
     };
-    let header = domain_linklist(&session, domain);
+    let header = domain_linklist(&session, &domain);
     let error = error.unwrap_or("");
-    Return::Content((rocket::http::Status::Ok, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, format!(r#"
-    {header}
+    Return::new(Some(Cow::Owned(template(&domain, format!(r#"
+{header}
 <div id="account-mod-error">{error}</div>
 {new_account}
 <h2>Existing Aliases:</h2>
@@ -126,6 +123,7 @@ WHERE $1 = ANY(domains.domain_owner) OR perms.admin OR perms.list_accounts
         {aliases}
     </table>
 </form>
-        "#).as_str())),
-    }))
+        "#).as_str()))))
+        .override_status(actix_web::http::StatusCode::OK)
+        .override_content_type(actix_web::http::header::ContentType::html())
 }

@@ -1,4 +1,4 @@
-use crate::rocket::content::admin::domain::UNAUTH;
+use crate::rocket::content::admin::domain::unauth;
 use crate::rocket::messages::{ALIAS_INVALID_CHARS, CREATE_ALIAS_NO_PERM, DATABASE_ERROR, DATABASE_PERMISSION_ERROR};
 use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
@@ -6,60 +6,60 @@ use crate::rocket::content::admin::domain::aliases::admin_domain_aliases_get_imp
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 
 mod private{
-    #[derive(serde::Deserialize, serde::Serialize, rocket::form::FromForm)]
-    pub struct CreateAlias<'a>{
-        pub source: &'a str,
+    #[derive(serde::Deserialize, serde::Serialize)]
+    pub struct CreateAlias{
+        pub source: String,
         pub user: i64,
     }
 }
 
-#[rocket::put("/admin/<domain>/aliases", data = "<data>")]
+#[actix_web::post("/admin/<domain>/aliases/create")]
 pub async fn admin_domain_aliases_put(
-    session: Option<Session>,
-    domain: &'_ str,
-    data: rocket::form::Form<private::CreateAlias<'_>>
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    data: actix_web::web::Form<private::CreateAlias>
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
     if !data.source.is_ascii() {
-        return (rocket::http::Status::BadRequest, DomainBase{
-            domain,
+        return (actix_web::http::StatusCode::BAD_REQUEST, DomainBase{
+            domain: domain.into(),
             content: ALIAS_INVALID_CHARS,
         }).into();
     }
 
     let pool = crate::get_db().await;
 
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: CREATE_ALIAS_NO_PERM,
     });
-    let permission = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permission = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permission.admin() && !permission.create_alias() {
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
     match sqlx::query!("
 SELECT insert_new_alias($1, $2, $3, $4) as id", permission.domain_id(), data.source,  data.user, session.get_user_id())
     .fetch_optional(&pool).await.map(|v|v.map(|v|v.id).flatten()) {
         Ok(Some(_)) => {},
-        Ok(None) => return (rocket::http::Status::Forbidden, DomainBase{
-            domain,
+        Ok(None) => return (actix_web::http::StatusCode::FORBIDDEN, DomainBase{
+            domain: domain.into(),
             content: DATABASE_PERMISSION_ERROR,
         }).into(),
         Err(err) => {
             log::error!("Error creating account: {err}");
-            let mut result = admin_domain_aliases_get_impl(Some(session), domain, Some(DATABASE_ERROR)).await;
-            result.override_status(rocket::http::Status::InternalServerError);
-            return result;
+            return admin_domain_aliases_get_impl(&*session_ref, domain, Some(DATABASE_ERROR))
+                .await
+                .override_status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
-    Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/aliases")))
+    Return::redirect_to(format!("/admin/{domain}/aliases"))
 }

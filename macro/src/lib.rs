@@ -130,7 +130,7 @@ JOIN virtual_domains domains ON domains.id = perm.domain_id
             const_format::concatcp!("SELECT ", $("COALESCE(", stringify!($user_perm), ", ", user_perm_defaults!($user_perm), ") AS \"", stringify!($user_perm), "!\" ,"),+ ,"1 as dummy FROM users LEFT JOIN user_permission ON users.id = user_permission.id WHERE users.id = $1")
         };
         quote!{
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Permission {
     domain_id: i64,
     is_owner: bool,
@@ -140,7 +140,7 @@ pub struct Permission {
     $($ident : bool,)*
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UserPermission {
     $($user_perm: bool,)*
 }
@@ -213,7 +213,7 @@ impl Permission {
     $(    #[inline] pub const fn $ident(&self) -> bool { self.is_owner() || self.$ident })*
 }
 
-#[derive(Debug, Default, Copy, Clone, serde::Serialize, serde::Deserialize, rocket::form::FromForm)]
+#[derive(Debug, Default, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OptPermission {
     $($ident : Option<bool>,)*
 }
@@ -227,7 +227,7 @@ impl OptPermission{
     }
 }
 
-#[derive(Debug, Default, Clone, rocket::form::FromForm)]
+#[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
 pub struct UpdatePermissions{
     pub users: HashMap<i64, Enabled<OptPermission>>,
 }

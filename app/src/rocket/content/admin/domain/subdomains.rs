@@ -1,26 +1,26 @@
 use std::borrow::Cow;
-use crate::rocket::content::admin::domain::{domain_linklist, template, UNAUTH};
+use crate::rocket::content::admin::domain::{domain_linklist, template, unauth};
 use crate::rocket::messages::{DATABASE_ERROR, VIEW_ADMIN_PANEL_DOMAIN_NO_PERM};
-use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 use crate::SPECIAL_ROOT_DOMAIN_NAME;
 
-#[rocket::get("/admin/<domain>/subdomains")]
-pub async fn admin_domain_subdomains_get(session: Option<Session>, domain: &str) -> Return {
-    admin_domain_subdomains_get_impl(session, domain, None).await
+#[actix_web::get("/admin/<domain>/subdomains")]
+pub async fn admin_domain_subdomains_get(session_ref: actix_web::web::ReqData<Option<Session>>, domain: String) -> Return {
+    admin_domain_subdomains_get_impl(&*session_ref, domain, None).await
 }
 
-pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<Session>, domain: &str, error: Option<&str>) -> Return {
+pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: &Option<Session>, domain: String, error: Option<&str>) -> Return {
     let session = match session {
-        None => return (rocket::http::Status::Forbidden, DomainBase{
-            domain,
+        None => return (actix_web::http::StatusCode::FORBIDDEN, DomainBase{
+            domain: domain.into(),
             content: VIEW_ADMIN_PANEL_DOMAIN_NO_PERM,
         }).into(),
         Some(v) =>v,
     };
-    let permissions = match session.get_permissions().get(domain) {
-        None => return UNAUTH(domain).into(),
+    let permissions = match session.get_permissions().get(&domain) {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
@@ -29,7 +29,7 @@ pub(in crate::rocket) async fn admin_domain_subdomains_get_impl(session: Option<
         !permissions.view_domain() ||
             !permissions.list_subdomain()
         {
-            return UNAUTH(domain).into();
+            return unauth(domain).into();
         }
     }
 
@@ -60,8 +60,8 @@ WHERE
         Err(err) => {
 
             log::error!("Error fetching accounts: {err}");
-            return (rocket::http::Status::InternalServerError, DomainBase{
-                domain,
+            return (actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase{
+                domain: domain.into(),
                 content: DATABASE_ERROR,
             }).into();
         }
@@ -127,12 +127,10 @@ WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_i
         String::new()
     };
 
-    let header = domain_linklist(&session, domain);
+    let header = domain_linklist(&session, &domain);
     let error = error.unwrap_or("");
-    Return::Content((rocket::http::Status::Ok, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, format!(r#"
-    {header}
+    Return::new(Some(Cow::Owned(template(&domain, format!(r#"
+{header}
 <div id="subdomain-mod-error">{error}</div>
 {new_subdomain}
 <table><tr><td>
@@ -149,6 +147,7 @@ WHERE $1 = ANY(domains.super) AND domains.deleted = true"#, permissions.domain_i
         {domains}
     </table>
 </form></td><td>{deleted_domains}</td></tr></table>
-        "#).as_str())),
-    }))
+        "#).as_str()))))
+        .override_status(actix_web::http::StatusCode::OK)
+        .override_content_type(actix_web::http::header::ContentType::html())
 }

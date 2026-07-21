@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::rocket::content::admin::domain::UNAUTH;
+use crate::rocket::content::admin::domain::unauth;
 use crate::rocket::messages::{DELETE_ACCOUNT_NO_PERM, DATABASE_ERROR, DELETE_DISABLED_NO_PERM, UNDELETE_DISABLED_NO_PERM};
 use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
@@ -8,53 +8,60 @@ use crate::rocket::template::authenticated::domain_base::DomainBase;
 mod private {
     use std::collections::HashMap;
 
-    #[derive(Debug, rocket::form::FromForm)]
+    #[derive(Debug, serde::Deserialize, serde::Serialize)]
     pub struct AccountId {
         pub id: i64
     }
 
-    #[derive(Debug, rocket::form::FromForm)]
+    #[derive(Debug, serde::Deserialize, serde::Serialize)]
     pub struct AccountSelection {
         pub accounts: HashMap<i64, bool>,
     }
 }
 
-#[rocket::delete("/admin/<domain>/accounts/<_>", data="<data>")]
+#[actix_web::post("/admin/<domain>/accounts/<_>/delete")]
 pub async fn admin_domain_account_delete(
-    session: Option<Session>,
-    domain: &str,
-    data: ::rocket::form::Form<private::AccountId>
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    data: ::actix_web::web::Form<private::AccountId>
 ) -> Return {
-    let mut accounts = std::collections::HashMap::new();
+    let mut accounts = std::collections::HashMap::with_capacity(1);
     accounts.insert(data.id, true);
-    admin_domain_accounts_delete(session, domain, ::rocket::form::Form::from(private::AccountSelection {accounts})).await
+    admin_domain_accounts_delete_impl(&*session_ref, domain, ::actix_web::web::Form(private::AccountSelection {accounts})).await
 }
 
-#[rocket::delete("/admin/<domain>/accounts", data="<data>")]
+#[actix_web::post("/admin/<domain>/accounts/disable")]
 pub async fn admin_domain_accounts_delete(
-    session: Option<Session>,
-    domain: &str,
-    data: ::rocket::form::Form<private::AccountSelection>
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    data: ::actix_web::web::Form<private::AccountSelection>
+) -> Return {
+    admin_domain_accounts_delete_impl(&*session_ref, domain, data).await
+}
+
+pub async fn admin_domain_accounts_delete_impl(
+    session: &Option<Session>,
+    domain: String,
+    data: ::actix_web::web::Form<private::AccountSelection>
 ) -> Return {
     let session = match session {
-        None => return UNAUTH(domain).into(),
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
-
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: DELETE_ACCOUNT_NO_PERM,
     });
-    let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permissions = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permissions.admin() && !permissions.delete_accounts(){
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
-    let db_error = (rocket::http::Status::InternalServerError, DomainBase{
+    let db_error = |domain|(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase{
         domain,
         content: DATABASE_ERROR,
     });
@@ -78,40 +85,40 @@ pub async fn admin_domain_accounts_delete(
                     log::error!("Error disabling accounts. User {} tried disabling accounts {accounts:?}, but we additionally recovered {extra_recovered:?} ", session.get_user_id());
                 }
             }
-            Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts")))
+            Return::redirect_to(format!("/admin/{domain}/accounts"))
         },
         Err(err) => {
             log::error!("Error deleting accounts: {err}");
-            db_error.into()
+            db_error(domain.into()).into()
         }
     }
 
 }
 
-#[rocket::post("/admin/<domain>/accounts/delete", data="<data>")]
+#[actix_web::post("/admin/<domain>/accounts/delete")]
 pub async fn admin_domain_accounts_delete_post(
-    session: Option<Session>,
-    domain: &str,
-    data: ::rocket::form::Form<private::AccountSelection>
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    data: ::actix_web::web::Form<private::AccountSelection>
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: DELETE_DISABLED_NO_PERM,
     });
-    let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permissions = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permissions.admin() && !(permissions.delete_disabled() && permissions.list_deleted()) {
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
-    let db_error = (rocket::http::Status::InternalServerError, DomainBase{
+    let db_error =  |domain|(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase{
         domain,
         content: DATABASE_ERROR,
     });
@@ -135,38 +142,38 @@ pub async fn admin_domain_accounts_delete_post(
                     log::error!("Error deleting accounts. User {} tried deleting accounts {accounts:?}, but we additionally recovered {extra_recovered:?} ", session.get_user_id());
                 }
             }
-            Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts")))
+            Return::redirect_to(format!("/admin/{domain}/accounts"))
         },
         Err(err) => {
             log::error!("Error deleting accounts: {err}");
-            db_error.into()
+            db_error(domain.into()).into()
         }
     }
 }
-#[rocket::post("/admin/<domain>/accounts/restore", data="<data>")]
+#[actix_web::post("/admin/<domain>/accounts/restore")]
 pub async fn admin_domain_accounts_restore_post(
-    session: Option<Session>,
-    domain: &str,
-    data: ::rocket::form::Form<private::AccountSelection>
+    session_ref: actix_web::web::ReqData<Option<Session>>,
+    domain: String,
+    data: ::actix_web::web::Form<private::AccountSelection>
 ) -> Return {
-    let session = match session {
-        None => return UNAUTH(domain).into(),
+    let session = match &*session_ref {
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
 
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: UNDELETE_DISABLED_NO_PERM,
     });
-    let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permissions = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permissions.admin() && !(permissions.undelete() && permissions.list_accounts()){
-        return no_perm.into();
+        return no_perm(domain.into()).into();
     }
 
-    let db_error = (rocket::http::Status::InternalServerError, DomainBase{
+    let db_error = |domain|(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase{
         domain,
         content: DATABASE_ERROR,
     });
@@ -190,11 +197,11 @@ pub async fn admin_domain_accounts_restore_post(
                     log::error!("Error restoring accounts. User {} tried restoring accounts {accounts:?}, but we additionally recovered {extra_recovered:?} ", session.get_user_id());
                 }
             }
-            Return::Redirect(rocket::response::Redirect::to(format!("/admin/{domain}/accounts")))
+            Return::redirect_to(format!("/admin/{domain}/accounts"))
         },
         Err(err) => {
             log::error!("Error restoring accounts: {err}");
-            db_error.into()
+            db_error(domain.into()).into()
         }
     }
 }

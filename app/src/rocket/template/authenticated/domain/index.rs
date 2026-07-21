@@ -5,7 +5,7 @@ use crate::rocket::auth::session::Permission;
 #[derive(Template)]
 #[template(path = "authenticated/domain/index.html")]
 pub struct DomainIndex<'a> {
-    pub domain: &'a str,
+    pub domain: std::borrow::Cow<'a, str>,
     pub permissions: &'a Permission,
     pub rename: Option<DomainName>,
     pub accounts: Vec<DomainAccount>,

@@ -1,27 +1,27 @@
 use std::borrow::Cow;
-use crate::rocket::content::admin::domain::{domain_linklist, template, UNAUTH};
+use crate::rocket::content::admin::domain::{domain_linklist, template, unauth};
 use crate::rocket::content::admin::domain::permissions::format_value;
 use crate::rocket::messages::{DATABASE_ERROR, LIST_ACCOUNT_NO_PERM};
-use crate::rocket::response::{Return, TypedContent};
+use crate::rocket::response::Return;
 use crate::rocket::auth::session::Session;
 use crate::rocket::template::authenticated::domain_base::DomainBase;
 
-#[rocket::get("/admin/<domain>/accounts/<user_name>")]
-pub async fn admin_domain_account_get(session: Option<Session>, domain: &str, user_name:&str) -> Return {
-    admin_domain_account_get_impl(session, domain, user_name, None).await
+#[actix_web::get("/admin/<domain>/accounts/<user_name>")]
+pub async fn admin_domain_account_get(session_ref: actix_web::web::ReqData<Option<Session>>, domain: String, user_name:String) -> Return {
+    admin_domain_account_get_impl(&*session_ref, domain, user_name, None).await
 }
 
-pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Session>, domain: &str, user_name:&str, error: Option<&str>) -> Return {
+pub(in crate::rocket) async fn admin_domain_account_get_impl(session: &Option<Session>, domain: String, user_name:String, error: Option<&str>) -> Return {
     let session = match session {
-        None => return UNAUTH(domain).into(),
+        None => return unauth(domain).into(),
         Some(v) => v,
     };
-    let no_perm = (rocket::http::Status::Forbidden, DomainBase{
+    let no_perm = |domain|(actix_web::http::StatusCode::FORBIDDEN, DomainBase{
         domain,
         content: LIST_ACCOUNT_NO_PERM,
     });
-    let permissions = match session.get_permissions().get(domain) {
-        None => return no_perm.into(),
+    let permissions = match session.get_permissions().get(&domain) {
+        None => return no_perm(domain.into()).into(),
         Some(v) => v,
     };
     if !permissions.admin() {
@@ -29,7 +29,7 @@ pub(in crate::rocket) async fn admin_domain_account_get_impl(session: Option<Ses
             !permissions.view_domain() ||
             !permissions.list_accounts()
         {
-            return no_perm.into();
+            return no_perm(domain.into()).into();
         }
     }
 
@@ -67,8 +67,8 @@ WHERE users.email = $1 AND users.domain_id = $2
         Err(err) => {
 
             log::error!("Error fetching accounts: {err}");
-            return (rocket::http::Status::InternalServerError, DomainBase{
-                domain,
+            return (actix_web::http::StatusCode::INTERNAL_SERVER_ERROR, DomainBase{
+                domain: domain.into(),
                 content: DATABASE_ERROR,
             }).into();
         }
@@ -199,16 +199,15 @@ WHERE users.email = $1 AND users.domain_id = $2
         String::new()
     };
 
-    let header = domain_linklist(&session, domain);
+    let header = domain_linklist(&session, &domain);
     let error = error.unwrap_or("");
-    Return::Content((rocket::http::Status::Ok, TypedContent{
-        content_type: rocket::http::ContentType::HTML,
-        content: Cow::Owned(template(domain, format!(r#"
-    {header}
+    Return::new(Some(Cow::Owned(template(&domain, format!(r#"
+{header}
 <div id="account-mod-error">{error}</div>
 {account_info}
 {aliases}
 {list_permissions}
-        "#).as_str())),
-    }))
+        "#).as_str()))))
+        .override_status(actix_web::http::StatusCode::OK)
+        .override_content_type(actix_web::http::header::ContentType::html())
 }

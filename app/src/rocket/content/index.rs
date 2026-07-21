@@ -1,20 +1,19 @@
-use rocket::http::Status;
 use crate::rocket::response::Return;
 use crate::rocket::template::login::Login;
 
-#[rocket::get("/")]
-pub fn index_get(session: Option<super::Session>) -> Return {
-    match session {
-        None => (Status::Ok, Login{error: None}).into(),
-        Some(_) => Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/admin")))
+#[actix_web::get("/")]
+pub async fn index_get(session_ref: actix_web::web::ReqData<Option<super::Session>>) -> Return {
+    match &*session_ref {
+        None => (actix_web::http::StatusCode::OK, Login{error: None}).into(),
+        Some(_) => Return::redirect_to_value(actix_web::http::header::HeaderValue::from_static("/admin"))
     }
 }
 
 
 pub(in crate::rocket) mod private {
-    #[derive(rocket::form::FromForm)]
-    pub struct Login<'r> {
-        pub email: &'r str,
+    #[derive(serde::Deserialize, serde::Serialize)]
+    pub struct Login {
+        pub email: String,
         pub password: String,
     }
 }

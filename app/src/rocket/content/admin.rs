@@ -13,10 +13,10 @@ pub(super) fn sort_permissions<'a>(permissions: impl Iterator<Item = (&'a String
     });
     permissions
 }
-#[rocket::get("/admin")]
-pub async fn admin_get(session: Option<Session>) -> Return {
-    let session = match session {
-        None => return Return::Redirect(rocket::response::Redirect::to(rocket::uri!("/"))),
+#[actix_web::get("/admin")]
+pub async fn admin_get(session_ref: actix_web::web::ReqData<Option<Session>>) -> Return {
+    let session = match &*session_ref {
+        None => return Return::redirect_to_value(actix_web::http::header::HeaderValue::from_static("/")),
         Some(v) => v,
     };
 
@@ -26,7 +26,7 @@ pub async fn admin_get(session: Option<Session>) -> Return {
             .filter(|(_, permissions)|permissions.admin() || permissions.view_domain())
     );
 
-    (rocket::http::Status::Ok, Admin{
+    (actix_web::http::StatusCode::OK, Admin{
             domains: permissions.into_iter().map(|(k, _)| k).collect::<Vec<_>>().as_slice()
     }).into()
 }

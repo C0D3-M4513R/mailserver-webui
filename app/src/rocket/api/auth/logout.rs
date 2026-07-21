@@ -1,9 +1,16 @@
-#[rocket::post("/logout")]
-pub fn logout_post(cookies: &rocket::http::CookieJar<'_>) -> rocket::response::Redirect {
-    match cookies.get_private("email") {
-        Some(v) => cookies.remove_private(v),
-        None => {},
-    }
+use crate::rocket::response::Return;
 
-    rocket::response::Redirect::to(rocket::uri!("/"))
+#[actix_web::post("/logout")]
+pub async fn logout_post(req: actix_web::HttpRequest) -> Return {
+    let mut ret = Return::redirect_to_value(actix_web::http::header::HeaderValue::from_static("/"));
+
+    let mut cookie = match req.cookie("email") {
+        Some(v) => v,
+        None => return ret,
+    };
+    
+    cookie.make_removal();
+    ret.add_cookie(&cookie);
+
+    ret
 }

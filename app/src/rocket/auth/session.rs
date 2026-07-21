@@ -1,7 +1,7 @@
+use std::fmt::Formatter;
 use std::io::Read;
+use actix_web::HttpMessage;
 use base64::Engine;
-use rocket::Request;
-use rocket::request::Outcome;
 use crate::{get_db, WEBMAIL_DOMAIN};
 
 pub use crate::rocket::auth::permissions::{Permission, UserPermission};
@@ -25,10 +25,10 @@ pub struct Session {
     pub(super) permissions: std::collections::HashMap<String, Permission>,
 }
 impl Session{
-    pub async fn refresh_permissions(&mut self, pool:sqlx::postgres::PgPool, cookies: &rocket::http::CookieJar<'_>) -> anyhow::Result<()> {
+    pub async fn refresh_permissions(&mut self, pool:sqlx::postgres::PgPool, cookies: &mut actix_web::cookie::PrivateJar<&mut actix_web::cookie::CookieJar>) -> anyhow::Result<()> {
         let session = Self::new(self.user_id, pool).await?;
         match session.get_cookie() {
-            Ok(v) => cookies.add_private(v),
+            Ok(v) => cookies.add(v),
             Err(err) => {
                 Self::remove_cookie(cookies);
 
@@ -39,14 +39,14 @@ impl Session{
         self.permissions = session.permissions;
         Ok(())
     }
-    pub fn remove_cookie(cookies: &rocket::http::CookieJar<'_>) {
-        match cookies.get_private("email")  {
-            Some(cookie) => cookies.remove_private(cookie),
+    pub fn remove_cookie(cookies: &mut actix_web::cookie::PrivateJar<&mut actix_web::cookie::CookieJar>) {
+        match cookies.get("email")  {
+            Some(cookie) => cookies.remove(cookie.clone()),
             None => {},
         }
     }
 
-    pub fn get_cookie(&self) -> anyhow::Result<rocket::http::Cookie<'static>> {
+    pub fn get_cookie(&self) -> anyhow::Result<actix_web::cookie::Cookie<'static>> {
         let cookie = SessionCookie::from(self);
         let json = match serde_json::to_vec(&cookie) {
             Ok(v) => v,
@@ -69,7 +69,7 @@ impl Session{
             },
         }
         let out = base64::engine::general_purpose::URL_SAFE.encode(out.as_slice());
-        let mut cookie = rocket::http::Cookie::new("email", out);
+        let mut cookie = actix_web::cookie::Cookie::new("email", out);
         cookie.set_secure(true);
         cookie.set_http_only(true);
         Ok(cookie)
@@ -80,55 +80,78 @@ impl Session{
     #[inline] pub const fn get_permissions(&self) -> &std::collections::HashMap<String, Permission> { &self.permissions }
 }
 
-#[rocket::async_trait]
-impl<'r> rocket::request::FromRequest<'r> for Session{
-    type Error = sqlx::Error;
+pub async fn session_middleware(
+    req: actix_web::dev::ServiceRequest,
+    next: actix_web::middleware::Next<impl actix_web::body::MessageBody + 'static>,
+) -> Result<actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>, actix_web::Error> {
+    let cookie = match req.cookie("email") {
+        Some(cookie) => cookie,
+        None => {
+            req.extensions_mut().insert(None::<Session>);
+            return next.call(req).await;
+        },
+    };
 
-    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let cookie = match request.cookies().get_private("email") {
-            Some(cookie) => cookie,
-            None => return Outcome::Forward(rocket::http::Status::Ok),
-        };
-
-        let email:SessionCookie = {
-            use base64::Engine;
-            let bytes = match base64::engine::general_purpose::URL_SAFE.decode(cookie.value().as_bytes()) {
-                Ok(v) => v,
-                Err(err) => {
-
-                    log::error!("Error decoding cookie from base64: {err}");
-                    request.cookies().remove_private(cookie);
-                    return Outcome::Forward(rocket::http::Status::Ok);
-                },
-            };
-            let mut out = Vec::new();
-            match flate2::bufread::GzDecoder::new(bytes.as_slice()).read_to_end(&mut out) {
-                 Ok(_) => {},
-                 Err(err) => {
-
-                    log::error!("Error decompressing cookie: {err}");
-                    request.cookies().remove_private(cookie);
-                    return Outcome::Forward(rocket::http::Status::Ok);
-                },
-            }
-
-            match serde_json::from_slice(out.as_slice()) {
-                Ok(v) => v,
-                Err(err) => {
-
-                    log::error!("Error deserializing cookie: {err}, {out:?}");
-                    request.cookies().remove_private(cookie);
-                    return Outcome::Forward(rocket::http::Status::Ok);
-                },
-            }
-        };
-        let db = get_db().await;
-        match Self::new(email.user_id, db).await {
-            Ok(v) => Outcome::Success(v),
+    let err_resp = async |next: actix_web::middleware::Next<_>, req: actix_web::dev::ServiceRequest| {
+        req.extensions_mut().insert(None::<Session>);
+        let mut resp = next.call(req).await?;
+        resp.response_mut().add_removal_cookie(&cookie)?;
+        Ok(resp)
+    };
+    let email:SessionCookie = {
+        use base64::Engine;
+        let bytes = match base64::engine::general_purpose::URL_SAFE.decode(cookie.value().as_bytes()) {
+            Ok(v) => v,
             Err(err) => {
-                log::error!("Error creating session: {err}");
-                Outcome::Error((rocket::http::Status::InternalServerError, err))
+                log::error!("Error decoding cookie from base64: {err}");
+
+                return err_resp(next, req).await;
+            },
+        };
+        let mut out = Vec::new();
+        match flate2::bufread::GzDecoder::new(bytes.as_slice()).read_to_end(&mut out) {
+            Ok(_) => {},
+            Err(err) => {
+                log::error!("Error decompressing cookie: {err}");
+                return err_resp(next, req).await;
+            },
+        }
+
+        match serde_json::from_slice(out.as_slice()) {
+            Ok(v) => v,
+            Err(err) => {
+                log::error!("Error deserializing cookie: {err}, {out:?}");
+                return err_resp(next, req).await;
+            },
+        }
+    };
+    let db = get_db().await;
+    match Session::new(email.user_id, db).await {
+        Ok(v) => {
+            req.extensions_mut().insert(Some(v));
+            next.call(req).await
+        },
+        Err(err) => {
+            log::error!("Error creating session: {err}");
+            struct Wrap(sqlx::Error);
+            impl std::fmt::Debug for Wrap {
+                fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                    <sqlx::Error as core::fmt::Debug>::fmt(&self.0, f)
+                }
             }
+            impl std::fmt::Display for Wrap {
+                fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "Error with Db lookup whilst creating session: {}", self.0)
+                }
+            }
+            impl std::error::Error for Wrap {
+                fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                    Some(&self.0)
+                }
+            }
+            impl actix_web::ResponseError for Wrap {}
+
+            Err(Wrap(err).into())
         }
     }
 }
